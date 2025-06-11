@@ -1,0 +1,58 @@
+HTTP
+
+Para añadir puertos por los que escucha Apache, añadimos en /etc/apache2/ports.conf
+Listen 80
+Listen 8080
+
+Comprobar desde que puertos escucha Apache:
+
+curl -I http://<IP-del-servidor>:8080/
+
+-----------------------------------------------------------------------------
+
+La edición de Directory se hace desde /etc/apache2/apache2.conf
+
+<Directory /var/www/html/archivos>
+	Options Indexes
+	Require all granted
+</Directory>
+
+-----------------------------------------------------------------------------
+
+Para el caso de las alias se hace desde /etc/apache2/conf-available/alias.conf
+
+Alias /mialias /opt/externo
+
+<Directory /opt/externo>
+	Options Indexes FollowSymLinks
+	Require all granted
+</Directory>
+
+Necesario ejecutar también esto:
+sudo a2enconf alias
+
+-----------------------------------------------------------------------------
+
+Configuración de VirtualHost y asignación de un DocumentRoot
+
+En /etc/apache2/sites-available/000-default.conf
+
+<VirtualHost *:80>
+  DocumentRoot /var/www/html
+  ServerName _default_
+  # O bien podrías apuntar a /proyectos/servidor1, según decidas:
+  # DocumentRoot /proyectos/servidor1
+</VirtualHost>
+
+
+En servidor2-8080.conf
+
+<VirtualHost *:8080>
+  ServerName _puerto8080_
+  DocumentRoot /proyectos/servidor2
+  <Directory /proyectos/servidor2>
+    Options Indexes FollowSymLinks
+    Require all granted
+  </Directory>
+</VirtualHost>
+

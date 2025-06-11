@@ -1,0 +1,553 @@
+AWS - Mediante COMANDOS:
+
+1º Instalación del cliente AWS CLI:
+
+sudo systemctl status chronyd 
+sudo systemctl enable chronyd  
+sudo systemctl start chronyd
+ 
+// Verificamos que este enabled
+sudo systemctl status chronyd 
+// Forzamos la sincronización
+sudo chronyc makestep 
+// Visualizamos la fecha ajustada 
+date 
+// En caso de querer meterlo de forma manual 
+sudo date --set "2025-04-17 16:51:09” 
+
+
++Instalación de curl:
+
+
+sudo yum install -y unzip curl 
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" 
+unzip awscliv2.zip 
+sudo ./aws/install 
+// Verificamos que todo salió bien 
+aws --version
+
+----------------------------------------------------------------------------------
+
+2º Configuración de credenciales:
+
+aws configure --profile AWS-CEU
+
+// Dentro de ~/.aws/credentials añadiríamos lo que viene en la documentación (tokens, id, etc...)
+
+// Comprobar que funcionó la conf de credenciales:
+aws sts get-caller-identity --profile AWS-CEU 
+
+----------------------------------------------------------------------------------
+
+3º Crear las herramientas de EC2:
+
+// VPC:
+/ SOLO EN CASO DE NO EXISTIR EL DEFAULT
+aws ec2 create-default-vpc --profile AWS-CEU
+
+vpcId=$(aws ec2 describe-vpcs \ 
+  --filters Name=isDefault,Values=true \ 
+  --query 'Vpcs[0].VpcId' --output text \ 
+  --profile AWS-CEU) 
+
+/ Comprobamos VPC:
+echo "VPC ID: $vpcId" 
+
+// Security Group
+
+sgId=$(aws ec2 create-security-group \ 
+  --group-name http-ssh-sg \ 
+  --description "SSH, HTTP, HTTPS" \ 
+  --vpc-id $vpcId \ 
+  --query 'GroupId' --output text \ 
+  --profile AWS-CEU) 
+
+/ Comprobamos SG:
+echo "SG ID: $sgId" 
+
+// Autorizamos los puertos:
+
+for port in 22 80 443; do 
+  aws ec2 authorize-security-group-ingress \ 
+    --group-id $sgId --protocol tcp --port $port --cidr 0.0.0.0/0 --profile AWS-CEU
+done 
+
+------------------------------------------------------------------------------------
+
+4º Creación de claves pública / privada SSH con el nombre CEU-KEYS
+
+aws ec2 create-key-pair \ 
+  --key-name CEU-Keys \ 
+  --query 'KeyMaterial' --output text \ 
+  --profile AWS-CEU > ~/.ssh/CEU-Keys.pem 
+
+/ Hay que ajustar los permisos:
+chmod 400 ~/.ssh/CEU-Keys.pem 
+
+------------------------------------------------------------------------------------
+
+5º Lanzar instancias Ubuntu 24.04 LTS usando ID de la ami:
+
+/ Primero hay que ver en que región nos encontramos:
+aws configure get region --profile AWS-CEU 
+
+/ Opción 1 
+https://cloud-images.ubuntu.com/locator/?_ga=2.145615652 
+/ Opción 2
+aws ec2 describe-images \ 
+    --owners 099720109477 \ 
+    --filters "Name=name,Values=*ubuntu*24.04*" "Name=architecture,Values=x86_64" \ 
+    --region us-east-1 \ 
+    --query "sort_by(Images, &CreationDate)[-1].ImageId" \ 
+    --output text 
+/ Opción 3
+aws ec2 describe-images \ 
+    --image-ids ami-08386558a06a2028e \ 
+    --query "Images[*].[ImageId,Name,CreationDate,Architecture,VirtualizationType]" \ 
+    --output table 
+
+// Escogemos la ami y la guardamos en una variable:
+amiId=ami-09eb231ad55c3963d 
+
+/ En caso de previamente no haber guardado los ids de VPC y SG
+
+aws ec2 describe-vpcs \ 
+  --query 'Vpcs[*].[VpcId,Tags]' \ 
+  --output table \ 
+  --profile AWS-CEU 
+
+VpcId=vpc-09ab54876763b22a5 
+
+aws ec2 describe-security-groups \ 
+  --filters "Name=vpc-id,Values=$vpcId" \ 
+  --query 'SecurityGroups[*].[GroupId,GroupName]' \ 
+  --output table \ 
+  --profile AWS-CEU 
+
+sgId=sg-03fed3e8f15770c99 
+
+/ Seleccionamos una subred (compatible con la ami seleccionada) y la guardamos
+
+aws ec2 describe-subnets \ 
+  --query 'Subnets[*].[SubnetId,Tags]' \ 
+  --output table \ 
+  --profile AWS-CEU 
+
+subnetId=subnet-015fc97b21471048b 
+
+/// Creación de la instancia:
+
+instanceId=$(aws ec2 run-instances \ 
+  --image-id $amiId \ 
+  --instance-type t2.micro \ 
+  --key-name CEU-Keys \ 
+  --security-group-ids $sgId \ 
+  --subnet-id $subnetId \ 
+  --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=CEU-Instance-1}]' \ 
+  --query 'Instances[0].InstanceId' \ 
+  --output text \ 
+  --profile AWS-CEU)
+
+ echo $instanceId
+
+-----------------------------------------------------------------------------------
+
+6º Verificación, conexión e instalación en la nueva instancia creada 
+
+// Ver la instancia desde shell
+aws ec2 describe-instances \ 
+--instance-ids i-083def977aa151ed6 \ 
+--query "Reservations[0].Instances[0].PublicIpAddress" \ 
+--profile AWS-CEU \ 
+--output text 
+
+aws ec2 describe-instances \ 
+--instance-ids $instanceId \ 
+--query "Reservations[0].Instances[0].PublicIpAddress" \ 
+--profile AWS-CEU \ 
+--output text 
+
+// Una vez comprobada su existencia e IP procedemos a abrir una sesión en ella 
+
+/ Para encontrar donde esta la clave
+find ~ -name "*.pem"
+
+/ Para conectarse usaremos ssh:
+ssh -i /home/ec2-user/.ssh/CEU-Keys.pem ubuntu@18.212.10.18
+
+/ En la práctica creamos un servidor apache dentro de la ubuntu y lo habilitamos con los siguientes comandos:
+
+sudo apt update && sudo apt upgrade -y 
+sudo apt install apache2 -y 
+sudo systemctl enable apache2 
+sudo systemctl start apache2 
+
+/ Para detener la instancia:
+
+aws ec2 stop-instances \
+--instance-ids $instanceId \
+--profile AWS-CEU \
+--output text
+
+/ Para ver su estado: 
+
+aws ec2 describe-instances \
+--instance-ids $instanceId \
+--query "Reservations[0].Instances[0].State.Name" \
+--profile AWS-CEU \
+--output text
+
+/ Para eliminar una instancia:
+
+aws ec2 terminate-instances \
+--instance-ids $instanceId \
+--profile AWS-CEU \
+--output text
+
+/ Para arrancar una instancia:
+
+aws ec2 start-instances \
+--instance-ids i-083def977aa151ed6 \
+--profile AWS-CEU 
+
+/ Creación de una AMI a partir de una instancia parada. Guardando su id:
+
+aws ec2 create-image \
+--instance-id i-083def977aa151ed6 \
+--name "MiImagenUbuntu" \
+--no-reboot \
+--profile AWS-CEU 
+
+/ Ver la IP de una instancia:
+
+aws ec2 describe-instances \
+--instance-ids i-083def977aa151ed6 \
+--profile AWS-CEU \
+--query "Reservations[0].Instances[0].PublicIpAddress" \
+--output text 
+
+/ Para añadir una etiqueta de Propietario a una instancia:
+
+aws ec2 create-tags \ 
+  --resources i-083def977aa151ed6 \ 
+  --tags Key=Propietario,Value=Alejandro \ 
+  --profile AWS-CEU
+ 
+/ Para visualizar las listas de una instancia en específico y ver sus tags:
+
+aws ec2 describe-tags \ 
+  --filters "Name=resource-id,Values=i-083def977aa151ed6" \ 
+  --profile AWS-CEU 
+
+-----------------------------------------------------------------------------------
+
+7º AMAZON VPC
+
+// Crear una nueva subred en la zona us-east-1b y visualizar:
+aws ec2 create-subnet \
+--vpc-id vpc-09ab54876763b22a5 \
+--cidr-block 172.31.100.0/24 \
+--availability-zone us-east-1b \
+--profile AWS-CEU \
+--output table 
+
+SubnetID=subnet-07d7ef863ade9e924
+
+/ En la práctica visualizamos las imágenes y vamos a utilizar la de MiImagenUbuntu:
+
+aws ec2 describe-images \ 
+  --owners self \ 
+  --query "Images[*].{ID:ImageId,Name:Name,CreationDate:CreationDate}" \ 
+  --output table \ 
+  --profile AWS-CEU 
+
+amiInstancia=ami-06d08a70a4dd8ed0d 
+
+/ lanzamos una instancia con este ami:
+
+aws ec2 run-instances \ 
+  --image-id $amiInstancia \ 
+  --tags Key=Name, Value="Instancia-Ubuntu-Zona-b"
+  --count 1 \ 
+  --instance-type t2.micro \ 
+  --key-name CEU-Keys \ 
+  --security-group-ids $sgId \ 
+  --subnet-id $SubnetID \ 
+  --associate-public-ip-address \ 
+  --profile AWS-CEU \ 
+  --output table 
+
+O probar con este:
+aws ec2 run-instances \
+  --image-id $amiInstancia \
+  --count 1 \
+  --instance-type t2.micro \
+  --key-name CEU-Keys \
+  --network-interfaces "SubnetId=$SubnetID,DeviceIndex=0,AssociatePublicIpAddress=false,Groups=$sgId" \
+  --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=Instancia-Ubuntu-Zona-b}]" \
+  --profile AWS-CEU \
+  --output table
+
+/ Para ver la ip privada
+
+aws ec2 describe-instances \ 
+--instance-ids $amiInstancia \ 
+--output table 
+
+/ Nos conectamos para probar desde ssh:
+ssh -i /home/ec2-user/.ssh/CEU-Keys.pem ubuntu@172.31.100.202 
+
+// Para darle salida a internet:
+
+/ IP elástica:
+
+aws ec2 allocate-address \ 
+  --domain vpc \ 
+  --profile AWS-CEU \ 
+  --output table 
+
+AllocationId=eipalloc-09025043212ec414a 
+
+/ NAT Gateway:
+
+aws ec2 create-nat-gateway \ 
+  --subnet-id $SubnetID \ 
+  --allocation-id $AllocationId \ 
+  --profile AWS-CEU \ 
+  --output table 
+
+NatGateWayId=nat-03c7bd36897e3ca7d 
+
+/ Creamos una nueva tabla de rutas:
+
+aws ec2 create-route-table \ 
+  --vpc-id $VpcId \ 
+  --profile AWS-CEU \ 
+  --output table 
+
+RouterTableId=rtb-033c2d3667c40491b 
+
+/ Añadimos la ruta hasta el NAT gateway
+
+aws ec2 create-route \ 
+  --route-table-id $RouterTableId  \ 
+  --destination-cidr-block 0.0.0.0/0 \ 
+  --nat-gateway-id $NatGateWayId \ 
+  --profile AWS-CEU \ 
+  --output table 
+
+/ Finalamente solo nos queda asociar nuestra tabla a la subred privada:
+
+aws ec2 associate-route-table \ 
+  --route-table-id $RouterTableId \ 
+  --subnet-id $SubnetID \ 
+  --profile AWS-CEU \ 
+  --output table 
+
+-----------------------------------------------------------------------------------
+
+Scripts Python3
+
+sudo yum install python3-pip
+pip install boto3
+
+----
+
+Para comprobar funcionamiento:
+AWS_PROFILE=AWS-CEU python3 prueba.py 
+
+import boto3
+
+ec2 = boto3.client("ec2")
+print(ec2.describe_instances())
+
+----
+
+Para listar instancias:
+AWS_PROFILE=AWS-CEU python3 lista_instancias.py
+
+import boto3 
+
+ec2 = boto3.client("ec2") 
+response = ec2.describe_instances( 
+    Filters=[{"Name": "instance-state-name", "Values": ["pending", "running", "stopping", "stopped"]}] 
+) 
+
+for reservation in response["Reservations"]: 
+
+    for instance in reservation["Instances"]: 
+
+        print("ID:", instance["InstanceId"]) 
+
+        print("Estado:", instance["State"]["Name"]) 
+
+        print("Subred:", instance.get("SubnetId", "N/A")) 
+
+        print("Clave:", instance.get("KeyName", "N/A")) 
+
+        print("Grupos de seguridad:", [sg["GroupName"] for sg in instance.get("SecurityGroups", [])]) 
+
+        print("IP privada:", instance.get("PrivateIpAddress", "N/A")) 
+
+        print("IP pública:", instance.get("PublicIpAddress", "N/A")) 
+
+        print("-" * 40) 
+
+----
+
+Para listar Subredes:
+AWS_PROFILE=AWS-CEU python3 lista_subredes.py
+
+import boto3 
+
+ec2 = boto3.client("ec2") 
+response = ec2.describe_subnets() 
+
+for subnet in response["Subnets"]: 
+
+    print("ID Subred:", subnet["SubnetId"]) 
+
+    print("VPC ID:", subnet["VpcId"]) 
+
+    print("CIDR:", subnet["CidrBlock"]) 
+
+    print("IP Pública Autoasignada:", "yes" if subnet["MapPublicIpOnLaunch"] else "no") 
+
+    print("-" * 40) 
+
+----
+
+Para lanzar instancias:
+AWS_PROFILE=AWS-CEU python3 lanzador_instancias.py ami-06d08a70a4dd8ed0d t2.micro subnet-0d786e8772b53d750 yes sg-03fed3e8f15770c99 CEU-Keys
+
+import sys  
+
+import boto3 
+
+ami_id, instance_type, subnet_id, public_ip, sg_name, key_name = sys.argv[1:] 
+
+ec2 = boto3.resource("ec2") 
+
+network_interface = {  
+            "SubnetId": subnet_id, 
+            "DeviceIndex": 0,  
+            "AssociatePublicIpAddress": True if public_ip == "yes" else False,  
+            "Groups": [sg_name] 
+}
+
+instance = ec2.create_instances(  
+            ImageId=ami_id,  
+            InstanceType=instance_type,  
+            MinCount=1, MaxCount=1,  
+            KeyName=key_name,  
+            NetworkInterfaces=[network_interface]  
+
+)[0] 
+
+print("ID instancia:", instance.id)  
+print("Estado:", instance.state["Name"])
+
+----
+
+Para enumerar el número de recursos empleados:
+AWS_PROFILE=AWS-CEU python3 contador_recursos.py
+
+import boto3 
+
+ec2 = boto3.client("ec2")  
+elb = boto3.client("elbv2") 
+vols = ec2.describe_volumes()  
+snaps = ec2.describe_snapshots(OwnerIds=["self"])  
+sec_groups = ec2.describe_security_groups()  
+key_pairs = ec2.describe_key_pairs()  
+load_balancers = elb.describe_load_balancers() 
+
+print("Volúmenes:", len(vols["Volumes"]))  
+print("Instantáneas:", len(snaps["Snapshots"]))  
+print("Grupos de seguridad:", len(sec_groups["SecurityGroups"]))  
+print("Parejas de claves:", len(key_pairs["KeyPairs"]))  
+print("Balanceadores de carga:", len(load_balancers["LoadBalancers"])) 
+
+----
+
+Para terminar instancias:
+AWS_PROFILE=AWS-CEU python3 terminar_instancias.py i-09d6ce3bbfbdb90bb 
+
+import sys
+import boto3
+
+# Verificar que se hayan pasado IDs como argumentos
+if len(sys.argv) < 2:
+    print("Uso: python terminate_instances.py <instance-id-1> <instance-id-2> ...")
+    sys.exit(1)
+
+instance_ids = sys.argv[1:]
+
+ec2 = boto3.client("ec2", profile_name="AWS-CEU")  # Añadir profile si es necesario
+
+response = ec2.terminate_instances(InstanceIds=instance_ids)
+
+for inst in response["TerminatingInstances"]:
+    print(f"Instancia {inst['InstanceId']} => Estado actual: {inst['CurrentState']['Name']}, Estado previo: {inst['PreviousState']['Name']}")
+
+----
+
+Para etiquetar a una isntancia creada:
+AWS_PROFILE=AWS-CEU python3 annadir_tag.py i-0875e882ec57258ae Etiquetado Practica
+import sys
+import boto3
+
+if len(sys.argv) != 4:
+    print("Uso: python annadir_tag.py <instance-id> <tag-key> <tag-value>")
+    sys.exit(1)
+
+instance_id, tag_key, tag_value = sys.argv[1:]
+session = boto3.Session(profile_name="AWS-CEU")
+ec2 = session.client("ec2")
+ec2.create_tags(Resources=[instance_id], Tags=[{"Key": tag_key, "Value": tag_value}])
+# Obtener información actualizada de la instancia
+instance = ec2.describe_instances(InstanceIds=[instance_id])["Reservations"][0]["Instances"][0]
+
+print("ID de la AMI:", instance["ImageId"])
+print("Etiquetas:")
+for tag in instance.get("Tags", []):
+    print(f"- {tag['Key']}: {tag['Value']}")
+
+----
+
+Para arrancar instancias con cierto valor como etiqueta:
+
+1º Detenemos las instancia
+aws ec2 stop-instances \
+--instance-ids i-0875e882ec57258ae \
+--profile AWS-CEU 
+
+2º Empieza la magia
+AWS_PROFILE=AWS-CEU python3 arrancar_por_tag.py Etiquetado Practica
+
+import boto3
+import sys
+
+if len(sys.argv) != 3:
+    print("Uso: python arrancar_por_tag.py <tag-key> <tag-value>")
+    sys.exit(1)
+
+tag_key = sys.argv[1]
+tag_value = sys.argv[2]
+
+session = boto3.Session(profile_name='AWS-CEU')
+ec2 = session.resource('ec2')
+
+instances = ec2.instances.filter(
+    Filters=[
+        {'Name': f'tag:{tag_key}', 'Values': [tag_value]},
+        {'Name': 'instance-state-name', 'Values': ['stopped']}
+    ]
+)
+
+for instance in instances:
+    print(f"Arrancando instancia {instance.id}...")
+    instance.start()
+
+
+----

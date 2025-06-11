@@ -1,0 +1,498 @@
+Índice
+1 Preparación del entorno
+1.1. Creación y arranque de máquinas virtuales
+1.2. Configuración de SSH y usuario ansible-admin
+
+2 Instalación y configuración de Ansible
+2.1. Instalar Ansible en el nodo administrador
+2.2. Configurar el inventario (/etc/ansible/hosts)
+2.3. Definir variables globales en group_vars/all.yml
+2.4. Verificación de conectividad con ansible all -m ping
+
+3 Ejecución de comandos ad-hoc
+3.A. Instalar Apache y Bind en un servidor Rocky
+3.B. Crear un directorio y copiar un archivo en todos los nodos
+3.C. Actualizar el sistema operativo Debian
+3.D. Uso de módulos lineinfile y blockinfile
+3.E. Uso del módulo template
+
+4 Playbooks completos
+4.1. Playbook: Servidores Web (servidoresweb.yml)
+4.2. Playbook: Configuración de zona DNS (zonadns.yml)
+
+1.2 Configuración de SSH y usuario ansible-admin
+
+PARA CADA VM:
+
+Verificar sshd
+sudo systemctl status sshd 
+/ En ubuntu: sudo systemctl enable --now ssh
+
+
+/ Crear ansible-admin:
+sudo useradd -m -s /bin/bash ansible-admin
+
+**** Contraseñas (NO HACERLO, salvo que lo pida el profesor de forma esplícita)
+**** echo "Contrasen@01" | sudo passwd --stdin ansible-admin 
+**** O
+**** sudo passwd ansible-admin
+
+/ Dar permisos de sudo sin contraseña * Ansible elevará privilegios a 
+/ root para instalar paquetes, editar archivos de configuración, etc. 
+/ Si pídiese contraseña, los playbooks fallarían.
+
+sudo tee /etc/sudoers.d/ansible-admin > /dev/null << EOF
+ansible-admin ALL=(ALL) NOPASSWD:ALL
+EOF
+sudo chmod 0440 /etc/sudoers.d/ansible-admin
+sudo visudo -c
+
++ Debian requiere instalar visudo:
+su -
+apt update
+apt install -y sudo
+
+/ Verificamos que nos podemos unir sin contraseña
+ssh ansible-admin@localhost
+sudo whoami
+
+/ Generar clave SSH en el admin
+
+ssh-keygen -t rsa -b 4096 \
+  -f ~/.ssh/id_rsa_ansible \
+  -C "clave ansible sin passphrase" \
+  -N ""
+
+ssh-copy-id -i ~/.ssh/id_rsa_ansible.pub ansible-admin@192.168.40.133   # rocky-admin (autoconexión local)
+ssh-copy-id -i ~/.ssh/id_rsa_ansible.pub ansible-admin@192.168.40.135   # rocky-dns1
+ssh-copy-id -i ~/.ssh/id_rsa_ansible.pub ansible-admin@192.168.40.136   # rocky-dns2
+ssh-copy-id -i ~/.ssh/id_rsa_ansible.pub ansible-admin@192.168.40.134   # ubuntu24
+ssh-copy-id -i ~/.ssh/id_rsa_ansible.pub ansible-admin@192.168.40.138   # debian11
+ssh-copy-id -i ~/.ssh/id_rsa_ansible.pub ansible-admin@192.168.40.137   # opensuse153
+
+/ Probamos conexión SSH sin Contraseña
+
+ssh -i ~/.ssh/id_rsa_ansible ansible-admin@192.168.40.135 'echo "SSH OK"'
+ssh -i ~/.ssh/id_rsa_ansible ansible-admin@192.168.40.136 'echo "SSH OK"'
+ssh -i ~/.ssh/id_rsa_ansible ansible-admin@192.168.40.134 'echo "SSH OK"'
+ssh -i ~/.ssh/id_rsa_ansible ansible-admin@192.168.40.138 'echo "SSH OK"'
+ssh -i ~/.ssh/id_rsa_ansible ansible-admin@192.168.40.137 'echo "SSH OK"'
+
+/ Comprobar que ansible-admin puede usar sudo sin contraseña:
+ssh -i ~/.ssh/id_rsa_ansible ansible-admin@192.168.40.135 'sudo whoami'
+
+---------------------------------------------------------------------------------
+
+
+2 Instalación y configuración de Ansible
+
+En la Admin:
+sudo dnf install -y epel-release
+sudo dnf update -y
+sudo dnf install -y ansible
+ansible --version
+
+Configurar inventario /etc/ansible/hosts
+
+###########################
+# Inventario Ansible
+###########################
+
+# Grupo: Servidores Web
+[WebServers]
+rocky-web1   ansible_host=192.168.40.133
+debian11     ansible_host=192.168.40.138
+ubuntu24     ansible_host=192.168.40.134
+opensuse153  ansible_host=192.168.40.137
+
+# Grupo: DNS master
+[DNS_Master]
+rocky-dns1   ansible_host=192.168.40.135
+
+# Grupo: DNS slave
+[DNS_Slave]
+rocky-dns2   ansible_host=192.168.40.136
+
+# Grupo: grupo que agrupa master y slave
+[Servidores_DNS:children]
+DNS_Master
+DNS_Slave
+
+/ Definir variable global
+sudo mkdir -p /etc/ansible/group_vars
+sudo chown -R $(whoami):$(whoami) /etc/ansible/group_vars
+
+/ Crear archivo /etc/ansible/group_vars/all.yml y añadir:
+---
+# Variables globales para *todos* los hosts
+ansible_user: ansible-admin
+ansible_ssh_private_key_file: /root/.ssh/id_rsa_ansible
+ansible_become: true
+ansible_become_method: sudo
+ansible_become_user: root
+
+/ Verificar conectividad:
+ansible all -m ping
+/ Verificar conectividad + sudo
+ansible all -b -m ping
+
+-----------------------------------------------------------------------------------
+
+3 Ejecución de comandos ad-hoc
+
+/ Instalar Apache (httpd en Rocky/RHEL)
+ansible rocky-web1 \
+  -b \
+  -m package \
+  -a "name=httpd state=latest"
+
+/ Instalar Bind (servidor DNS)
+ansible rocky-web1 \
+  -b \
+  -m package \
+  -a "name=bind state=latest"
+
+/ Habilitar e iniciar ambos
+ansible rocky-web1 \
+  -b \
+  -m systemd \
+  -a "name=httpd enabled=yes state=started"
+
+ansible rocky-web1 \
+  -b \
+  -m systemd \
+  -a "name=named enabled=yes state=started"
+
+----
+
+/ Crear un directorio y copiar un archivo en todos los nodos
+
+ansible all \
+  -b \
+  -m file \
+  -a "path=/var/archivos state=directory owner=root group=root mode=0755"
+
+/ Creamos el archivo en el admin, para probar:
+
+echo "Este es un archivo de ejemplo creado en $(date)" > ~/ejemplo.txt
+
+/ Copiamos en todos los hosts:
+
+ansible all \
+  -b \
+  -m copy \
+  -a "src=/root/ejemplo.txt dest=/var/archivos/ejemplo.txt owner=root group=root mode=0644"
+
+/ Actualizar el SO Debian:
+
+ansible debian11 \
+  -b \
+  -m apt \
+  -a "update_cache=yes upgrade=dist force_apt_get=yes"
+
+/ Uso de módulos lineinfile y blockinfile
+//Añadir una línea al final de un archivo (lineinfile)
+//Ejemplo: insertar o actualizar el mensaje de bienvenida en /etc/motd de todos los hosts:
+
+/Añadir una línea al final de un archivo (lineinfile)
+ansible all \
+  -b \
+  -m lineinfile \
+  -a "path=/etc/motd line='Bienvenido a {{ inventory_hostname }}' create=yes"
+
+/Modificar una directiva en un archivo (por ejemplo, PermitRootLogin en SSH)
+ansible all \
+  -b \
+  -m lineinfile \
+  -a "path=/etc/ssh/sshd_config regexp='^#?PermitRootLogin' line='PermitRootLogin no' backup=yes"
+
+/Eliminar una linea
+ansible all \
+  -b \
+  -m lineinfile \
+  -a "path=/etc/ssh/sshd_config regexp='^Banner /etc/issue\\.net' state=absent backup=yes"
+
+/Insertar un bloque de líneas (blockinfile)
+ansible all \
+  -b \
+  -m blockinfile \
+  -a "path=/etc/ssh/sshd_config \
+      block='Match User admin\n    X11Forwarding no' \
+      marker='# {mark} ANSIBLE MANAGED BLOCK' \
+      backup=yes"
+
+// Uso del módulo template
+/Copiar archivos de configuración a partir de plantillas Jinja2 (.j2), rellenando variables dinámicamente.
+
+mkdir -p ~/ansible/playbooks
+mkdir -p ~/ansible/playbooks/templates
+vim ~/ansible/playbooks/templates/ejemplo_template.j2
+
+dentro de ejemplo_template.j2
+# Archivo de configuración generado por Ansible
+# Host: {{ inventory_hostname }}
+# Fecha: {{ ansible_date_time.date }} {{ ansible_date_time.time }}
+
+[server]
+hostname = {{ inventory_hostname }}
+ip       = {{ ansible_default_ipv4.address }}
+
+Crear playbook que use esta plantilla:
+vim ~/ansible/playbooks/ejemplo_template.yml
+
+---
+- name: Desplegar plantilla de configuración de ejemplo
+  hosts: webservers
+  gather_facts: true
+
+  tasks:
+    - name: Copiar plantilla de configuración a /etc/ansible_ejemplo.conf
+      template:
+        src: templates/ejemplo_template.j2
+        dest: /etc/ansible_ejemplo.conf
+        owner: root
+        group: root
+        mode: '0644'
+
+Ejecutamos el Playbook:
+cd ~/ansible/playbooks
+ansible-playbook ejemplo_template.yml
+
+/ Verificamos
+ssh -i ~/.ssh/id_rsa_ansible ansible-admin@192.168.40.133 'cat /etc/ansible_ejemplo.conf'
+
+
+
+LOS OTROS PLAYBOOKS, dudo que lo use:
+
+En ~/ansible/playbooks/servidoresweb/templates/virtualhost.j2
+<VirtualHost *:80>
+    ServerName {{ dominio }}
+    DocumentRoot /var/www/{{ dominio }}/public_html
+
+    <Directory /var/www/{{ dominio }}/public_html>
+        Options Indexes FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    ErrorLog /var/log/httpd/{{ dominio }}_error.log
+    CustomLog /var/log/httpd/{{ dominio }}_access.log combined
+</VirtualHost>
+
+
+En ~/ansible/playbooks/servidoresweb/servidoresweb.yml
+---
+- name: Configurar servidores web
+  hosts: WebServers
+  become: true
+  vars:
+    paquete_apache: "{{ 'httpd' if ansible_facts['os_family'] == 'RedHat' else 'apache2' }}"
+
+  tasks:
+    - name: Instalar Apache
+      package:
+        name: "{{ paquete_apache }}"
+        state: present
+
+    - name: Crear directorio raíz del dominio
+      file:
+        path: "/var/www/{{ dominio }}/public_html"
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: '0755'
+
+    - name: Crear archivo index.html de ejemplo
+      copy:
+        dest: "/var/www/{{ dominio }}/public_html/index.html"
+        content: |
+          <html>
+          <head><title>Bienvenido a {{ dominio }}</title></head>
+          <body>
+            <h1>¡Hola desde {{ inventory_hostname }}!</h1>
+          </body>
+          </html>
+        owner: www-data
+        group: www-data
+        mode: '0644'
+
+    - name: Deploy de virtual host con plantilla
+      template:
+        src: "templates/virtualhost.j2"
+        dest: "/etc/{{ 'httpd' if ansible_facts['os_family'] == 'RedHat' else 'apache2' }}/sites-available/{{ dominio }}.conf"
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Habilitar sitio web (RedHat/CentOS/Rocky)
+      command: "ln -s /etc/httpd/sites-available/{{ dominio }}.conf /etc/httpd/sites-enabled/{{ dominio }}.conf"
+      args:
+        removes: "/etc/httpd/sites-enabled/{{ dominio }}.conf"
+      when: ansible_facts['os_family'] == 'RedHat'
+
+    - name: Habilitar sitio web (Debian/Ubuntu)
+      file:
+        src: "/etc/apache2/sites-available/{{ dominio }}.conf"
+        dest: "/etc/apache2/sites-enabled/{{ dominio }}.conf"
+        state: link
+      when: ansible_facts['os_family'] != 'RedHat'
+
+    - name: Reiniciar servicio de Apache
+      service:
+        name: "{{ paquete_apache }}"
+        state: restarted
+        enabled: yes
+
+Ejecutar
+ansible-playbook servidoresweb.yml --extra-vars "dominio=mi-dominio.com"
+
+
+mkdir -p ~/ansible/playbooks/dns/templates
+cd ~/ansible/playbooks/dns
+
+
+Edit /etc/ansible/group_vars/all.yml
+# Variables para zona DNS
+ip_ns1: "192.168.40.135"   # IP del servidor DNS maestro
+ip_ns2: "192.168.40.136"   # IP del servidor DNS esclavo
+zona: "prueba.com"
+
+En ~/ansible/playbooks/dns/templates/named.conf.options.j2
+options {
+    directory "/var/named";
+    recursion yes;
+    allow-query { any; };
+    forwarders {
+        8.8.8.8;
+        8.8.4.4;
+    };
+    dnssec-validation auto;
+    auth-nxdomain no;    # conform to RFC1035
+};
+
+En ~/ansible/playbooks/dns/templates/named.conf.local.j2
+zone "{{ zona }}" IN {
+    type master;
+    file "/var/named/{{ zona }}.db";
+    allow-transfer { {{ ip_ns2 }}; };
+};
+
+En ~/ansible/playbooks/dns/templates/db.zona.master.j2
+$TTL 86400
+@   IN  SOA ns1.{{ zona }}. root.{{ zona }}. (
+        2025052101 ; Serial (YYYYMMDDXX)
+        3600       ; Refresh
+        1800       ; Retry
+        604800     ; Expire
+        86400      ; Minimum TTL
+)
+
+@       IN  NS      ns1.{{ zona }}.
+@       IN  NS      ns2.{{ zona }}.
+
+ns1     IN  A       {{ ip_ns1 }}
+ns2     IN  A       {{ ip_ns2 }}
+@       IN  A       {{ ip_ns1 }}
+www     IN  A       {{ ip_ns1 }}
+
+En ~/ansible/playbooks/dns/templates/db.zona.slave.j2
+$TTL 86400
+@   IN  SOA ns1.{{ zona }}. root.{{ zona }}. (
+        2025052101 ; Serial (coincide con la zona maestra)
+        3600       ; Refresh
+        1800       ; Retry
+        604800     ; Expire
+        86400      ; Minimum TTL
+)
+
+@       IN  NS      ns1.{{ zona }}.
+@       IN  NS      ns2.{{ zona }}.
+
+@       IN  A       {{ ip_ns1 }}
+ns1     IN  A       {{ ip_ns1 }}
+ns2     IN  A       {{ ip_ns2 }}
+www     IN  A       {{ ip_ns1 }}
+
+; Configuración de zona esclava
+zone "{{ zona }}" IN {
+    type slave;
+    file "/var/named/{{ zona }}.db";
+    masters { {{ ip_ns1 }}; };
+    allow-query { any; };
+};
+
+En ~/ansible/playbooks/dns/zonadns.yml
+---
+- name: Configurar Bind DNS (maestro y esclavo)
+  hosts: Servidores_DNS
+  become: true
+  vars:
+    # Definir nombre del paquete Bind según la familia OS
+    nombre_bind: >-
+      {% if ansible_facts['os_family'] == 'RedHat' %}
+        bind
+      {% else %}
+        bind9
+      {% endif %}
+
+  tasks:
+    - name: Instalar paquete de Bind
+      package:
+        name: "{{ nombre_bind }}"
+        state: present
+
+    - name: Copiar archivo named.conf.options
+      template:
+        src: "templates/named.conf.options.j2"
+        dest: /etc/named.conf.options
+        owner: root
+        group: root
+        mode: '0644'
+      # Este archivo es común tanto para maestro como esclavo
+
+    - name: Copiar named.conf.local (solo en DNS Maestro)
+      when: "'DNS_Master' in group_names"
+      template:
+        src: "templates/named.conf.local.j2"
+        dest: /etc/named.conf.local
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Copiar zona maestra (solo en DNS Maestro)
+      when: "'DNS_Master' in group_names"
+      template:
+        src: "templates/db.zona.master.j2"
+        dest: "/var/named/{{ zona }}.db"
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Copiar zona esclava (solo en DNS Slave)
+      when: "'DNS_Slave' in group_names"
+      template:
+        src: "templates/db.zona.slave.j2"
+        dest: "/var/named/{{ zona }}.db"
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Asegurar permisos en /var/named
+      file:
+        path: /var/named
+        owner: named
+        group: named
+        recurse: yes
+
+    - name: Reiniciar/recargar servicio Bind
+      service:
+        name: "{{ 'named' if ansible_facts['os_family'] == 'RedHat' else 'bind9' }}"
+        state: restarted
+        enabled: yes
+
+Ejecutar:
+cd ~/ansible/playbooks/dns
+ansible-playbook zonadns.yml --extra-vars "zona=prueba.com"
+
+

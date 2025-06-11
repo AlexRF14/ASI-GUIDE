@@ -1,0 +1,158 @@
+Distribuciones RHEL-like (Rocky, AlmaLinux, CentOS, Fedora)
+/var/named/mispruebas.com.zone
+/var/named/35.168.192.in-addr.arpa
+/etc/named.conf
+
+Establecer las zonas de resolución directa e indirecta, fichero /etc/named.conf , en 
+
+Plantilla resolución directa master:
+
+zone "mispruebas.com" IN {
+	type master;
+	file "/var/named/mispruebas.com.zone";
+	allow-transfer { 192.168.35.129; };
+	notify yes;
+};
+
+Plantilla resolución indirecta master:
+
+zone "35.168.192.in-addr.arpa" IN {
+	type master;
+	file "/var/named/35.168.192.in-addr.arpa";
+	allow-transfer { 192.168.35.129; };
+	notify yes;
+};
+
+zone "40.80.120.in-addr.arpa" IN {
+	type master;
+	file "/var/named/40.80.120.in-addr.arpa";
+	allow-transfer { 192.168.35.129; };
+	notify yes;
+};
+
+Creamos ficheros de las zonas asignadas:
+
+Plantilla resolución directa master /var/named/mispruebas.com.zone:
+
+$TTL 86400
+mispruebas.com.	IN	SOA	ns1.mispruebas.com.	root.mispruebas.com.	(
+	2030030801	;
+	3600		;
+	1800		;
+	604800		;
+	86400	)	;
+;
+
+mispruebas.com.		IN	NS	ns1.mispruebas.com.
+mispruebas.com.		IN	NS	ns2.mispruebas.com.
+ns1.mispruebas.com.	IN	A	192.168.35.128
+ns2.mispruebas.com.	IN	A	192.168.35.129
+
+mail.mispruebas.com.	IN	A	120.80.40.120
+mispruebas.com.		IN	MX	20 mail.mispruebas.com.
+
+www.mispruebas.com.	IN	A	120.80.40.10
+www.mispruebas.com.	IN	A	120.80.40.11
+
+sinai.mispruebas.com.		IN	A	120.80.40.10
+sanson.mispruebas.com.		IN	A	120.80.40.40
+intranet.mispruebas.com.	IN	CNAME	sanson.mispruebas.com.
+
+Plantilla resolución indirecta master /var/named/35.168.192.i-addr.arpa
+
+$TTL 86400
+mispruebas.com.	IN	SOA	ns1.mispruebas.com.	root.mispruebas.com.	(
+	2025030801	;
+	3600		;
+	1800		;
+	604800		;
+	86400	)	;
+;
+35.168.192.in-addr.arpa.	IN	NS	ns1.mispruebas.com.
+35.168.192.in-addr.arpa.	IN	NS	ns2.mispruebas.com.
+
+128.35.168.192.in-addr.arpa.	IN	PTR	ns1.mispruebas.com.
+129.35.168.192.in-addr.arpa.	IN	PTR	ns2.mispruebas.com.
+
+----------------------------------------------------------------------------------------------------
+
+Distribuciones Debian, Ubuntu y derivados
+/etc/bind/named.conf: configuración principal (o incluye otras)
+/etc/bind/named.conf.local: -> para las zonas
+/etc/bind/db.mispruebas.com → zona directa
+/etc/bind/db.192 → zona inversa
+
+Desde /etc/bind/named.conf.local :
+
+zone "mispruebas.com" {
+    type master;
+    file "/etc/bind/db.mispruebas.com";
+    allow-transfer { 192.168.35.129; };
+    notify yes;
+};
+
+zone "35.168.192.in-addr.arpa" {
+    type master;
+    file "/etc/bind/db.192";
+    allow-transfer { 192.168.35.129; };
+    notify yes;
+};
+
+zone "40.80.120.in-addr.arpa" {
+    type master;
+    file "/etc/bind/db.120";
+    allow-transfer { 192.168.35.129; };
+    notify yes;
+};
+
+Plantilla resolución directa master /etc/bind/db.mispruebas.com
+
+$TTL 86400
+@   IN  SOA ns1.mispruebas.com. root.mispruebas.com. (
+        2030030801 ; Serial
+        3600        ; Refresh
+        1800        ; Retry
+        604800      ; Expire
+        86400 )     ; Negative Cache TTL
+
+@       IN  NS      ns1.mispruebas.com.
+@       IN  NS      ns2.mispruebas.com.
+
+ns1     IN  A       192.168.35.128
+ns2     IN  A       192.168.35.129
+
+mail    IN  A       120.80.40.120
+@       IN  MX 20   mail
+
+www     IN  A       120.80.40.10
+www     IN  A       120.80.40.11
+
+sinai       IN  A   120.80.40.10
+sanson      IN  A   120.80.40.40
+intranet    IN  CNAME sanson
+
+Plantilla resolución indirecta master /etc/bind/db.192
+
+$TTL 86400
+@   IN  SOA ns1.mispruebas.com. root.mispruebas.com. (
+        2025030801 ; Serial
+        3600       ; Refresh
+        1800       ; Retry
+        604800     ; Expire
+        86400 )    ; Negative Cache TTL
+
+@       IN  NS      ns1.mispruebas.com.
+@       IN  NS      ns2.mispruebas.com.
+
+128     IN  PTR     ns1.mispruebas.com.
+129     IN  PTR     ns2.mispruebas.com.
+
+-----------------------------------------------------------------------
+Verificar Sintaxis:
+sudo named-checkconf
+sudo named-checkzone mispruebas.com /etc/bind/db.mispruebas.com
+
+
+Si falla probar dar permisos adicionales:
+sudo chown root:bind /etc/bind/db.*
+sudo chmod 640 /etc/bind/db.*

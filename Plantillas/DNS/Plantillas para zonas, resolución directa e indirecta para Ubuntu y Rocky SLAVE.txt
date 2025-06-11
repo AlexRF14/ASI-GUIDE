@@ -1,0 +1,56 @@
+Para una máquina Ubuntu SLAVE:
+
+zona /etc/bind/named.conf.local 
+
+zone "mispruebas.com" {
+    type slave;
+    masters { 192.168.35.128; };
+    file "/var/cache/bind/db.mispruebas.com";
+};
+
+zone "35.168.192.in-addr.arpa" {
+    type slave;
+    masters { 192.168.35.128; };
+    file "/var/cache/bind/db.192";
+};
+
+zone "40.80.120.in-addr.arpa" {
+    type slave;
+    masters { 192.168.35.128; };
+    file "/var/cache/bind/db.120";
+};
+
+Verificar permisos con
+sudo chown -R bind:bind /var/cache/bind
+
+----------------------------------------------------
+
+Para una máquina Rocky SLAVE:
+
+zona /etc/named.conf
+
+zone "mispruebas.com" IN {
+    type slave;
+    masters { 192.168.35.128; };
+    file "slaves/mispruebas.com.zone";
+};
+
+zone "35.168.192.in-addr.arpa" IN {
+    type slave;
+    masters { 192.168.35.128; };
+    file "slaves/35.168.192.zone";
+};
+
+zone "40.80.120.in-addr.arpa" IN {
+    type slave;
+    masters { 192.168.35.128; };
+    file "slaves/40.80.120.zone";
+};
+
+Verificamos que existe /var/named/slaves/ y que tiene permisos:
+sudo mkdir -p /var/named/slaves
+sudo chown named:named /var/named/slaves
+
+----------------------------------------------------
+Verificar sintaxis
+sudo named-checkconf
