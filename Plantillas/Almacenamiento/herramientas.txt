@@ -1,0 +1,10 @@
++ Herramientas para visualización y diagnóstico:
+
+/   lsblk -f        -       Muestra dispositivos, particiones, UUID y FS
+/   blkid           -       Muestra UUIDs y etiquetas
+/   df -h           -       Uso del sistema de archivos
+/   du -sh *        -       Uso de disco por carpeta
+/   mount , umount  -       Montar/Desmontar sistemas de archivos
+/   fdisk -l        -       Ver particiones y tabla MBR
+/   smartctl -a /dev/sdX    Verificar el estado SMART del disco
+
