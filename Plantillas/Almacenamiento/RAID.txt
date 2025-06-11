@@ -1,0 +1,54 @@
++ RAID
+
+- Seleccionamos primero el RAID virtual (el que hace que se comporte como un único disco 
+  físico, aunque esté compuesto por varios discos físicos o particiones) y los volúmenes 
+  a integrar.
+
+- Comando para Verificar progreso del RAID (IMPORTANTE, debe estar al 100%)
+
+    cat /proc/mdstat
+
+- Aclaración
+    - Cada RAID que creamos con mdadm debe tener un único RAID virtual (/dev/mdX, donde X 
+      es secuencial).
+    - Luego, para montarlos, se recomienda crear un punto de montaje exclusivo por cada 
+      RAID (/mnt/raidX).
+    - Si montas varios RAIDs en el mismo punto, se sobreescriben temporalmente.
+
+++ RAID 0:
+
+    sudo mdadm --create --verbose /dev/md0 --level=0 --raid-devices=2 /dev/sdX1 /dev/sdY1
+
+++ RAID 1:
+
+    sudo mdadm --create --verbose /dev/md1 --level=1 --raid-devices=2 /dev/sdX1 /dev/sdY1
+
+++ RAID 5:
+
+    sudo mdadm --create --verbose /dev/md2 --level=5 --raid-devices=3 /dev/sdX1 /dev/sdY1 /dev/sdZ1
+
+++ RAID 10 (Mínimo 4 discos):
+
+    sudo mdadm --create --verbose /dev/md3 --level=10 --raid-devices=4 /dev/sdb1 /dev/sdc1 /dev/sdd1 /dev/sde1
+
+- Crear sistema de archivos:
+
+    sudo mkfs.ext4 /dev/md0
+
+- Crear punto de montaje:
+
+    sudo mkdir -p /mnt/raid0
+
+- Montar RAID:
+
+    sudo mount /dev/md0 /mnt/raid0
+
+- Copiamos los UUIDs usando lsblk -f y los añadimos en /etc/fstab, 
+  para hacerlos persistentes. 
+  Ejemplo estructura:
+    UUID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx /mnt/raid ext4 defaults 0 0
+
+- Para guardar la configuración RAID para el arranque:
+
+    sudo mdadm --detail --scan | sudo tee -a /etc/mdadm/mdadm.conf
+    sudo update-initramfs -u

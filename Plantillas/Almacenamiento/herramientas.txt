@@ -8,3 +8,6 @@
 /   fdisk -l        -       Ver particiones y tabla MBR
 /   smartctl -a /dev/sdX    Verificar el estado SMART del disco
 
++ Herramientas de RAID (hay que instalarlas)
+
+    sudo apt install mdadm -y
