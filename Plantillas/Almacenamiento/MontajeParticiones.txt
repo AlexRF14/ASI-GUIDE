@@ -1,5 +1,7 @@
 + Montaje de Particiones:
 
+++ Montaje y Desmontaje básico:
+
 - Para el montaje, seleccionamos un volumen + la ruta que queremos montar
 
     sudo mount /dev/sdX1 /mnt/mi_punto
@@ -7,3 +9,87 @@
 - Para desmontar, solo debemos seleccionar la ruta
 
     sudo umount /mnt/mi_punto
+
+++ Particionamiento de un disco:
+
+- Utilizaremos fdisk y añadiremos el volumen que queremos particionar
+
+    sudo fdisk /dev/sdX
+
+    - Se nos abrirá un shell interactivo en el que podremos usar estos comandos:
+        m   -> ayuda
+        p   -> Muestra las particiones actuales del disco
+        n   -> Crar una nueva partición
+        (n -> e)   -> Crear una partición extendida (podremos crear lógicas dentro)
+        d   -> Elimina una partición existente
+        t   -> Cambia el tipo de partición (ej. Linux, FAT32, etc.)
+        a   -> Marca una partición como booteable
+        w   -> Guardar los cambios (sobrescribe)
+        q   -> Salir sin Guardar
+
+    - Ejemplo: Crear 3 particiones primarias + extendida
+
+        sudo fdisk /dev/sdX
+
+        (n , p , 1 , Enter, +5G)
+        (n , p , 2 , Enter, +5G)
+        (n , p , 3 , Enter, +5G)
+        (n , e , 4 , Enter , Enter)
+
+        Extra: Crear particiones lógicas:
+
+        (n , Enter , Enter, +5G)
+
+        Finalizar con:
+        (w)
+
+    - Ejemplo: Crear 2 particiones primarias
+
+        sudo fdisk /dev/sdX
+
+        (n , p , 1 , Enter, +5G)
+        (n , p , 2 , Enter, +5G)
+
+++ Formateo de particiones:
+
+- Estos son los tipos que existen, y como se usan:
+
+    sudo mkfs.ext4 /dev/sdX1       # ext4
+    sudo mkfs.vfat /dev/sdX1       # FAT32
+    sudo mkfs.ntfs /dev/sdX1       # NTFS
+    sudo mkfs.xfs /dev/sdX1        # XFS
+
+- Sobre el ejemplo (Crear 3 particiones primarias + extendida) de antes, 
+  explicaré que pasos debemos hacer:
+
+    - Formateamos las 3 particiones primarias + la lógica
+        
+        sudo mkfs.ext4 /dev/sdX1
+        sudo mkfs.ext4 /dev/sdX2
+        sudo mkfs.ext4 /dev/sdX3
+        sudo mkfs.ext4 /dev/sdX5
+    
+    - Crear puntos de montaje:
+
+        sudo mkdir -p /mnt/disk1
+        sudo mkdir -p /mnt/disk2
+        sudo mkdir -p /mnt/disk3
+        sudo mkdir -p /mnt/disk5
+
+    - Montar manualmente:
+
+        sudo mount /dev/sdX1 /mnt/disk1
+        sudo mount /dev/sdX2 /mnt/disk2
+        sudo mount /dev/sdX3 /mnt/disk3
+        sudo mount /dev/sdX5 /mnt/disk5
+
+    - Copiamos los UUIDs usando lsblk -f y los añadimos en /etc/fstab, 
+      para hacerlos persistentes. 
+      Ejemplo estructura:
+        UUID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx /mnt/disk1 ext4 defaults 0 2
+        UUID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx /mnt/disk2 ext4 defaults 0 2
+        UUID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx /mnt/disk3 ext4 defaults 0 2
+        UUID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx /mnt/disk5 ext4 defaults 0 2
+
+    - Usamos "sudo mount -a" para poder verificar sin reinciar.
+      Recomendable reiniciar igualmente, para comprobar la persistencia.
