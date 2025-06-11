@@ -1,0 +1,9 @@
++ Montaje de Particiones:
+
+- Para el montaje, seleccionamos un volumen + la ruta que queremos montar
+
+    sudo mount /dev/sdX1 /mnt/mi_punto
+
+- Para desmontar, solo debemos seleccionar la ruta
+
+    sudo umount /mnt/mi_punto
