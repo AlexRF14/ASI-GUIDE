@@ -1,6 +1,7 @@
 + NFS (Network File System) permite compartir directorios y archivos entre 
   sistemas Linux/Unix de forma unilateral, lo que escriba el cliente, se 
-  guardará en la carpeta del compartida en el Servidor.
+  guardará en la carpeta del compartida en el Servidor, pero ambos pueden, 
+  escribir y leer.
 
 - Instalación NFS:
 
@@ -35,6 +36,10 @@
         sync: sincroniza escrituras
 
         no_subtree_check: mejora estabilidad
+
+- Hacemos persistente el Servidor añadiendo en /etc/fsatb:
+
+    UUID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx /srv/nfs/compartido ext4 defaults 0 0
 
 - Exportar los recursos y reiniciar el servidor (dentro del Servidor)
 
