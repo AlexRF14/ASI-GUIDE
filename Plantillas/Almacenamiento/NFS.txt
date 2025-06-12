@@ -1,0 +1,73 @@
++ NFS (Network File System) permite compartir directorios y archivos entre 
+  sistemas Linux/Unix de forma unilateral, lo que escriba el cliente, se 
+  guardará en la carpeta del compartida en el Servidor.
+
+- Instalación NFS:
+
+    - Servidor:
+
+        sudo apt install nfs-kernel-server
+        sudo exportfs -ra 
+        sudo systemctl enable nfs-server
+        sudo systemctl start nfs-server
+        sudo exports -v
+
+    - Cliente:
+
+        sudo apt install nfs-common
+        sudo dnf install nfs-utils
+
+- Creamos la carpeta a compartir (dentro del Servidor):
+
+    sudo mkdir -p /srv/nfs/compartido
+    sudo chown nobody:nogroup /srv/nfs/compartido  # Opción 1
+    sudo chmod 777 /srv/nfs/compartido # Opción 2
+
+- Configuramos /etc/exports (dentro del Servidor), añadiendo:
+
+    /srv/nfs/compartido 192.168.1.0/24(rw,sync,no_subtree_check)
+
+    - Explicación parámetros:
+        192.168.1.0/24: red que podrá montar
+
+        rw: lectura/escritura
+
+        sync: sincroniza escrituras
+
+        no_subtree_check: mejora estabilidad
+
+- Exportar los recursos y reiniciar el servidor (dentro del Servidor)
+
+    sudo exportfs -a
+    sudo systemctl restart nfs-kernel-server
+
+    - Verificar:
+        sudo exportfs -v
+
+- Montar en el Cliente (Temporal, dentro del cliente):
+
+    sudo mkdir -p /mnt/nfs
+    sudo mount 192.168.1.10:/srv/nfs/compartido /mnt/nfs
+
+    * Hay que poner la IP del Servidor
+
+- Montar en el Cliente (Persistente, dentro del cliente):
+
+    showmount -e 192.168.1.10
+
+    - Añadimos en /etc/fstab
+        192.168.1.10:/srv/nfs/compartido /mnt/nfs nfs defaults 0 0
+
+- Comprobación:
+
+    - Cualquier archivo en /mnt/nfs, aparecerá en el servidor:
+
+        echo "Hola desde cliente" | sudo tee /mnt/nfs/cliente.txt
+
+    - Estado del servicio:
+
+        sudo systemctl status nfs-kernel-server
+
+    - Logs (desde el Servidor):
+
+        journalctl -xe
