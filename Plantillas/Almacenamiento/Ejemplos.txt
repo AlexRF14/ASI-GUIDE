@@ -1,0 +1,45 @@
+Ejemplos de posibles ejercicios particulares que nos pueden pedir:
+
+    + Aumentar 10 gb a un montado /mnt/prueba, usando otro volumen:
+        sdc
+            sdc1     ext4      /mnt/prueba      5G
+        sdd                                     15G
+
+    - Opción LVM:
+
+        - Desmontar y hacer copia de seguridad:
+
+            sudo umount /mnt/prueba
+            sudo tar czvf ~/prueba-backup.tar.gz -C /mnt/prueba .
+
+        - Transformar particiones en PVs:
+
+            sudo pvcreate /dev/sdc1
+            sudo pvcreate /dev/sdd
+
+        - Crear VG:
+
+            sudo vgcreate vg_prueba /dev/sdc1 /dev/sdd
+
+        - Crear o ampliar LV:
+
+            - Crear nuevo LV (si no existia):
+                sudo lvcreate -n lv_prueba -L 15G vg_prueba
+
+            - Ampliar un LV, (si antes hubiese sido creado con -L 5G para sdc1)
+                sudo lvextend -L +10G /dev/vg_prueba/lv_prueba
+
+        - Formatear y montar:
+
+            sudo mkfs.ext4 /dev/vg_prueba/lv_prueba
+            sudo mount /dev/vg_prueba/lv_prueba /mnt/prueba
+
+        - Resturar los datos de /mnt/prueba
+
+            sudo tar xzvf ~/prueba-backup.tar.gz -C /mnt/prueba
+
+        - Para persistencia:
+
+            UUID=$(blkid -s UUID -o value /dev/vg_prueba/lv_prueba)
+            echo "UUID=$UUID /mnt/prueba ext4 defaults 0 2" | sudo tee -a /etc/fstab
+
