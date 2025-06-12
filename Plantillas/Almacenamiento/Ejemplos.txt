@@ -68,3 +68,90 @@ Ejemplos de posibles ejercicios particulares que nos pueden pedir:
         * En caso de querer asignar un tamaño en específico, en el caso del RAID, 
           debemos hacer una partición del disco /dev/ssd del tamaño que queremos,
           y seguir los pasos anteriores.
+
+    + Se desea implementar un entorno de red donde un servidor central (NFS Server) 
+      almacene datos sobre un volumen RAID 5 para proporcionar alta disponibilidad y 
+      redundancia. Este volumen será exportado mediante NFS y montado de forma permanente 
+      en un único cliente Linux, que tendrá acceso completo para lectura y escritura.
+
+    - Aclaración importante sobre persistencia:
+        
+        Servidor → UUID (porque monta un bloque local).
+        Cliente → IP + ruta exportada NFS (no necesita UUID).
+
+    * En el servidor *
+
+    - Crear el RAID 5:
+
+        sudo mdadm --create --verbose /dev/md0 --level=5 --raid-devices=3 /dev/sdb1 /dev/sdc1 /dev/sdd1
+
+    - Verificar y luego guardar la configuración para que persista:
+
+        cat /proc/mdstat
+
+        sudo mdadm --detail --scan | sudo tee -a /etc/mdadm/mdadm.conf
+        sudo update-initramfs -u
+
+    - Crear sistema de archivos ext4
+
+        sudo mkfs.ext4 /dev/md0
+
+    - Montar el RAID y luego hacerlo persistente desde /etc/fsatb , UUID:
+
+        sudo mkdir -p /mnt/raid5
+        sudo mount /dev/md0 /mnt/raid5
+
+        UUID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx /mnt/raid5 ext4 defaults 0 0
+
+
+    - Isntalar y configurar el servidor NFS
+
+        sudo apt update
+        sudo apt install nfs-kernel-server -y
+
+    - Agregar a /etc/exports
+
+        /mnt/raid5    192.168.1.100(rw,sync,no_subtree_check)
+        
+        - En este caso la IP es la del cliente, si tuviesemos más, deberiamos usar
+          una mascara: /mnt/raid5  192.168.1.0/24(rw,sync,no_subtree_check)
+          
+    - Reiniciar el servicio:
+
+        sudo exportfs -ra
+        sudo systemctl restart nfs-kernel-server
+
+    * En el Cliente *
+
+    - Instalar:
+
+        sudo apt update
+        sudo apt install nfs-common -y
+
+    - Crear punto de montaje:
+
+        sudo mkdir -p /mnt/nfs_raid5
+
+    - Montar el recurso NFS:
+
+        sudo mount 192.168.1.10:/mnt/raid5 /mnt/nfs_raid5
+
+    - Persistencia en /etc/fstab añadiendo:
+
+        192.168.1.10:/mnt/raid5  /mnt/nfs_raid5  nfs  defaults  0  0
+
+    - Algunas Verificaciones no nombradas anteriormente:
+
+        reboot
+        df -h | grep nfs
+
+        - Desde el Servidor: 
+            echo "Archivo original desde el servidor" | sudo tee /mnt/raid5/servidor.txt
+        - Desde el Cliente:
+            cat /mnt/nfs_raid5/servidor.txt
+            "Archivo original desde el servidor"
+            echo "Hola desde el cliente" | sudo tee /mnt/nfs_raid5/cliente.txt
+        - Desde el Servidor:
+            cat /mnt/raid5/cliente.txt
+            "Hola desde el cliente"
+        
