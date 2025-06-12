@@ -155,3 +155,25 @@ Ejemplos de posibles ejercicios particulares que nos pueden pedir:
             cat /mnt/raid5/cliente.txt
             "Hola desde el cliente"
         
+    + Desmontar el RAID 0 del Ejemplo 1:
+
+    - Desmontamos el punto de montaje:
+
+        sudo umount /mnt/prueba
+
+    - Detener el dispositivo RAID:
+
+        sudo mdadm --stop /dev/md0
+
+    - Eliminar la configuración RAID
+
+        sudo mdadm --zero-superblock /dev/sdc1
+        sudo mdadm --zero-superblock /dev/sdd
+
+    - Eliminar el dispositivo (/dev/md0):
+
+        sudo rm -f /dev/md0
+
+    - Revisamos el estado:
+
+        lsblk -f
