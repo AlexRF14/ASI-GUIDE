@@ -56,3 +56,45 @@ En servidor2-8080.conf
   </Directory>
 </VirtualHost>
 
+############################################
+############################################
+
+Para la configuracion en Rocky (/etc/httpd/)
+
+1) Instalacion
+	dnf update -y
+	dnf install httpd -y
+
+2). No hace falta tocar el httpd.config -> Crear un archivo de VirtualHost en /etc/httpd/conf.d/<nombre>.conf
+Para que cumpla lo que nos pidio en el examen (de lo que me acuerdo al menos):
+
+<VirtualHost *:80>
+        ServerName www.prueba.es
+        ServerAlias prueba.es www.prueba.com prueba.com # Todos los alias que podia tener
+        DocumentRoot "/web/prueba"
+
+        <Directory "/web/prueba">
+                DirectoryIndex default.html # Para que encuentre nuestro index file
+                Require all granted
+                AllowOverride All
+        </Directory>
+
+        Alias /privado /web/privado # Como esta fuera del DocumentRoot sin esto no lo identifica
+        <Directory "/web/privado">
+                Require all granted
+                AllowOverride AuthConfig # Mira en el archivo de .htaccess en el directorio /web/privado
+        </Directory>
+</VirtualHost>
+
+3.) Creamos el archivo .htpasswd en /web/privado
+	htpasswd -c /web/privado/.htpasswd <n_usuario> 
+	(IMPORTANTE: No poner la opcion de -c si el archivo ya existe porque lo reescribe entonces)
+
+4). Creamos el archivo .htaccess en /web/privado con lo siguiente:
+
+AuthUserFile /web/privado/.htpasswd
+AuthType Basic
+AuthName "Private Directory"
+Require valid-user      
+
+And that's all folks
