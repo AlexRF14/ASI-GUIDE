@@ -1,0 +1,110 @@
+#############################################
+SIMULACION DEL ENVIROMENT DEL EXAMEN (Rocky)
+Para simular el enviroment del examen he hecho lo siguiente:
+
+Enviroment 'similar' al del examen:
+
+sdb - 20GB
+ |---sdb1 - 5GB
+ |     |---hdds-hdd - 4GB - /var/datos    # hdds es el VG , hdd es el LV
+ |---sdb2 - 5GB
+ |---sdb3 - 5GB
+ |---sdb4 - 5GB
+
+ En una VM le meti un disco SATA mas de 20GB para hacer esto.
+ Dentro de la VM, creo las particiones de sdb con lo siguiente:
+
+ 1). fsdisk /dev/sdb
+ 2). Pulsa n para crear una nueva partición.
+ 3). Elige p para primaria.
+ 4). Selecciona el número de partición (por ejemplo, 1).
+ 5). Pulsa Enter para aceptar el sector inicial por defecto.
+ 6). Cuando te pida el último sector, puedes escribir +5G para que la partición sea de 5 GB.
+ 7). Repetir para llenar el disco con particiones (la ultima solo dar enter a todo lol)
+ 8). Pulsa w para guardar los cambios y salir.
+
+Para crear el LV hdds-hdd que cuelga de sdb1 hacemos lo siguiente:
+
+Iniciamos el sdb1 como volumen fisico (PV):
+
+   pvcreate /dev/sdb1
+
+Creamos el Volume Group (VG):
+
+   vgcreate hdds /dev/sdb1
+
+Creamos el Logical Volume (LV):
+
+   lvcreate -L 4G -n hdd hdds    # lvcreate -L 4G -n <n_LV> <n_VG>
+
+Metemos un filesystem al LV (como ext4):
+
+   mkfs.ext4 /dev/hdds/hdd    # mkfs.ext4 /dev/<n_vg>/<n_lv>
+
+Montamos el directorio al lv (crear el directorio si no existe, no hagas el gilipollas como yo y rallarte 15min pensando que ya lo habias creado):
+
+   mount /dev/hdds/hdd /var/datos
+
+Y para que se monte auntomaticamente cuando se reinicia la VM metemos en /etc/fstab lo siguiente:
+
+   /dev/hdds/hdd /var/datos ext4 defaults 0 2
+
+
+Y ya deberia de estar mas o menos simulasdo el enviroment del examen
+
+####################################################
+
+Para expandir el LV de 4GB -> 8GB hay que meter otra de las partciones dentro del VG (hdds) donde esta el LV (hdd).
+
+Primero inicializamos una de las particiones (como sdb2) como vilumen fisico:
+
+   pvcreate /dev/sdb2
+
+Extendemos el VG metiendole sdb2:
+
+   vgextend hdds /dev/sdb2
+
+Y ya podemos extender el LV a 8GB (porque el VG ahora tiene 10GB total):
+
+   lvextend -L 8G /dev/hdds/hdd
+
+Y por ultimo hacer un resize del filesystem.
+Para ext4:
+
+   resize2fs /dev/hdds/hdd
+
+(depende del filesystem es un comando diferente, para algo como XFS es 'xfs_growfs /var/datos')
+
+La estructura final poniendo lsblk queda asi:
+
+sdb            8:16   0   20G  0 disk
+├─sdb1         8:17   0    5G  0 part
+│ └─hdds-hdd 253:2    0    8G  0 lvm  /var/datos
+├─sdb2         8:18   0    5G  0 part
+│ └─hdds-hdd 253:2    0    8G  0 lvm  /var/datos
+├─sdb3         8:19   0    5G  0 part
+└─sdb4         8:20   0    5G  0 part
+
+Y no rallarse porque parece que son dos LV diferentes de 8GB cada uno, se puede comprobar usando el comando 'lvdisplay /dev/hdds/hdd' o 'lvs':
+
+[root@server datos]# lvdisplay /dev/hdds/hdd
+  --- Logical volume ---
+  LV Path                /dev/hdds/hdd
+  LV Name                hdd
+  VG Name                hdds
+  LV UUID                mdm0w2-elrC-1Erq-6nFe-fexN-09lx-EmBJzv
+  LV Write Access        read/write
+  LV Creation host, time server, 2025-06-14 20:57:37 +0200
+  LV Status              available
+  # open                 1
+  LV Size                8,00 GiB  # son solo 8GB y solo hay uno
+  Current LE             2048
+  Segments               2
+  Allocation             inherit
+  Read ahead sectors     auto
+  - currently set to     256
+  Block device           253:2
+
+  
+Y finiquitado joderrr
+
