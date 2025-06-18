@@ -15,8 +15,8 @@ aws --version
 1). Crear la conexion en la consola
 
   [root@server ~]# aws configure
-  AWS Access Key ID [None]: ASIAYC6XFD2ELDDGQXLQ
-  AWS Secret Access Key [None]: twCMfXnGQVKw4nzlw/uYoajhPumn5529cJSYA29O
+  AWS Access Key ID [None]: A**************Q
+  AWS Secret Access Key [None]: t*************************O
   Default region name [None]: eu-west2
   Default output format [None]: table
   
