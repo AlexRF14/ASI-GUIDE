@@ -1,0 +1,144 @@
+Preconfiguracion: instalacion de AWS CLI en la maquina si no lo tiene:
+ 
+sudo systemctl status chronyd 
+
+sudo chronyc makestep 
+
+sudo yum install -y unzip curl 
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" 
+unzip awscliv2.zip 
+sudo ./aws/install 
+aws --version
+
+---------------------------------------------------------------------------------------
+
+1). Crear la conexion en la consola
+
+  [root@server ~]# aws configure
+  AWS Access Key ID [None]: ASIAYC6XFD2ELDDGQXLQ
+  AWS Secret Access Key [None]: twCMfXnGQVKw4nzlw/uYoajhPumn5529cJSYA29O
+  Default region name [None]: eu-west2
+  Default output format [None]: table
+  
+  meter dentro de .aws/credentials el session token:
+  
+  vim .aws/credentials
+  
+  aws_session_token = ...
+
+2). Crear el security group 'ordinaria_sg' para SSH (:22), HTTP (:80) y HTTPS (:443)
+
+  - Primero tenemos que ver la VPC:
+  
+      aws ec2 describe-vpcs  # Y la id de la vpc que nos devuelva es la que vamos a usar en la creacion del grupo
+  
+  - Creamos el grupo con el id de la vpc de antes, nos devuletve el id del grupo que nos va a hacer falta:
+  
+      aws ec2 create-security-group --group-name ordinaria_sg  --description "Permite acceso HTTP, HTTPS y SSH"  --vpc-id vpc-0cd519894aee2486e
+  
+  - Le metemos las reglas al grupo, usando el id del grupo de antes:
+  
+      aws ec2 authorize-security-group-ingress --group-id sg-062316e8fea8e07ad --protocol tcp --port 22 --cidr 0.0.0.0/0 
+  
+      aws ec2 authorize-security-group-ingress --group-id sg-062316e8fea8e07ad --protocol tcp --port 80 --cidr 0.0.0.0/0
+  
+      aws ec2 authorize-security-group-ingress --group-id sg-062316e8fea8e07ad --protocol tcp --port 443 --cidr 0.0.0.0/0
+  
+  - Comprobamos que este bien configurado con:
+  
+      aws ec2 describe-security-groups --group-ids sg-062316e8fea8e07ad
+
+
+3). Crear pareja de claves sin passphrase
+
+  - Creamos las keys:
+
+      aws ec2 create-key-pair --key-name Ordinaria_Keys --query 'KeyMaterial' --output text > ~/.ssh/Ordinaria_Keys.pem 
+
+  - Le ponemos permisos al archivo:
+
+      chmod 400 ~/.ssh/Ordinaria_Keys.pem
+
+4). Creamos una subnet en eu-west-2b con direccionamiento 172.31.200.0/26
+
+  - Usamos el vpc id para crear la subnet
+
+      aws ec2 create-subnet --vpc-id vpc-0cd519894aee2486e --cidr-block 172.31.200.0/26 --availability-zone eu-west-2b
+
+5). Creamos una instancia de Amazon Linux 2003 // t2.micro // con una IP publica // en la subnet creada // con las keys y grupo creado
+
+  - Sacamos las IDs de el grupo de seguridad y de la subred creada, que la vamos a usar para crear la instancia:
+
+      aws ec2 describe-subnets
+
+      aws ec2 describe-security-gropus
+  
+  - Nos dan una imagen (ami-0bc8d5c547360e648), la usamos para crear una instancia de la imagen
+
+      aws ec2 run-instances --image-id ami-0bc8d5c547360e648 --instance-type t2.micro --key-name Ordinaria_Keys --security-group-ids sg-062316e8fea8e07ad --subnet-id subnet-0bf078453c9240e6b --associate-public-ip-address
+
+  - Es posible que no exista la imagen especifica, busacar una de amazon linux 2023 con: 
+
+      aws ec2 describe-images   --owners amazon   --filters "Name=name,Values=al2023-ami-*"   --query "Images[*].[ImageId,Name,CreationDate]"  --output table
+
+
+6). Conexion ssh a la instancia:
+
+  - La instancia tiene una IP publica asociada, se puede encontrar con algo como:
+
+      aws ec2 describe-instances --query 'Reservations[].Instances[].[InstanceId, PublicIpAddress]' --output table
+
+  - Con la IP publica, nos conectamos con:
+
+      ssh -i .ssh/Ordinaria_Keys.pem ec2-user@54.82.98.238    # el path suele estar en el ~
+
+7). Instalar Apache y crear pagina predeterminada con Nombre y Apellido:
+
+  - Instalamos apache y abilitamos:
+
+      sudo dnf update -y
+
+      sudo dnf install httpd -y
+
+      sudo systemctl start httpd
+
+  - En /var/www/html metemos un index.html con Nombre Y Apellido, y reiniciamos httpd:
+
+      sudo vim index.html
+
+      sudo systemctl restart httpd
+
+
+8). Para borrar todo lo que tenemos:
+
+    - Borramos la instancia (sacamos su id con 'aws ec2 describe-instances'):
+
+        aws ec2 terminate-instances --instance-ids i-0e3041927321adb50  
+
+    - Borramos la subnet (sacamos su id con 'aws ec2 describe-subnets'): 
+
+        aws ec2 delete-subnet --subnet-id subnet-0bf078453c9240e6b
+
+    - Borramos el security group:
+
+        aws ec2 delete-security-group --group-id <id_ya_lo_sabes_joderrr>
+
+    - Borramos las claves:
+
+        aws ec2 delete-key-pair --key-name Ordinaria_Keys
+
+    - En nuestro caso no le hicimos una allocation de una IP Elastica/Publica a la maquina, pero si se le hiciera, para liberarla:
+
+        # Find the allocation ID
+        aws ec2 describe-addresses
+
+        # Disassociate (if associated)
+        aws ec2 disassociate-address --association-id <association-id>
+        
+        # Release the Elastic IP
+        aws ec2 release-address --allocation-id <allocation-id>
+  
+
+FINAL
+
+    
