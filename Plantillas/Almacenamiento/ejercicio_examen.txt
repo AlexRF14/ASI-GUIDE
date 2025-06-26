@@ -148,5 +148,11 @@ Configuracion de server NFS para /var/datos
 
      sudo mount -t nfs <IP_servidor>:/var/datos /mnt/remoto
 
+  - Si da error puede ser por permisos, hacer algo como:
+
+    sudo chown sudo nobody /var/datos
+    sudo chown 777 /var/datos
+
+
 Y finiquitado joderrr
 
