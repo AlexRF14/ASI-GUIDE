@@ -11,3 +11,44 @@
 
 	sudo apt install cifs-utils
 
+-Servidor Linux:
+
+	sudo mkdir -p /srv/samba/compartido
+	sudo chown nobody:nogroup /srv/samba/compartido  # Opción 1 (anónimo)
+	sudo chmod 777 /srv/samba/compartido             # Opción 2 (acceso total)
+
+Configuramos el archivo /etc/samba/smb.conf añadiendo al final:
+
+[Compartido]
+   path = /srv/samba/compartido # ruta absoluta a la carpeta compartida
+   browsable = yes 		# permite que se vea al explorar la red
+   read only = no 		# no permite escritura
+   guest ok = yes		# acceso sin autenticación
+
+Verificar errores en smb.conf y reiniciar:
+
+	sudo testparm
+	sudo systemctl restart smbd
+
+Comprobar que el recurso está compartido:
+
+	smbclient -L localhost -N
+
+-Cliente Linux:
+
+Método Temporal:
+
+sudo mkdir -p /mnt/samba
+sudo mount -t cifs //192.168.1.10/Compartido /mnt/samba -o guest
+
+Método Persistente, dentro de /etc/fstab añadiremos lo siguiente:
+
+//192.168.1.10/Compartido /mnt/samba cifs guest,uid=1000,iocharset=utf8 0 0
+
+-Cliente Windows:
+
+Si en smb.conf configuramos "guest ok = yes", podremos acceder mediante el navegador usando:
+
+\\192.168.1.10\Compartido
+
+---------------------------------------------------------------------------------------------------
