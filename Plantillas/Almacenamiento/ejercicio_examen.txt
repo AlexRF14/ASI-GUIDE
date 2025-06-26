@@ -146,7 +146,7 @@ Configuracion de server NFS para /var/datos
 
   - Y montamos la carpeta:
 
-     sudo mount -t nfs <IP_servidor>:/var/nfs /mnt/remoto
+     sudo mount -t nfs <IP_servidor>:/var/datos /mnt/remoto
 
 Y finiquitado joderrr
 
