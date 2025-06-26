@@ -1,0 +1,97 @@
+--- Usuarios
+
+Una vez creado el usuario ansible, debemos añadir también una contraseña (para poder agregar las claves ssh):
+Redhat: sudo useradd username | passwd username
+Ubuntu y Debian: sudo adduser username | passwd username
+
+Usamos "visudo" (en el caso de Debian debemos primero descargar sudo y luego probar "sudo visudo -c") y añadimos:
+username ALL=(ALL) NOPASSWD:ALL
+
+---
+--- SSH
+
+Ahora en la máquina principal, creamos la pareja de claves públicas/privadas:
+
+ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa_ansible -C "clave ansible sin passphrase" -N ""
+
+Para copiarla en el resto de máquinas:
+
+ssh-copy-id -i ~/.ssh/id_rsa_ansible.pub ansible@192.168.40.133
+ssh-copy-id -i ~/.ssh/id_rsa_ansible.pub ansible@192.168.40.135
+ssh-copy-id -i ~/.ssh/id_rsa_ansible.pub ansible@192.168.40.136
+
+Para comprobar que todo esta bien:
+
+ssh -i ~/.ssh/id_rsa_ansible ansible@192.168.40.135 'echo "SSH OK  "'
+ssh -i ~/.ssh/id_rsa_ansible ansible@192.168.40.136 'echo "SSH OK  "'
+
+Para comprobar que podemos acceder sin coontraseña:
+
+ssh -i ~/.ssh/id_rsa_ansible ansible-admin@192.168.40.133 'sudo whoami'
+ssh -i ~/.ssh/id_rsa_ansible ansible-admin@192.168.40.135 'sudo whoami'
+ssh -i ~/.ssh/id_rsa_ansible ansible-admin@192.168.40.136 'sudo whoami'
+
+---
+--- Configuración de Ansible:
+
+En una Rocky:
+
+sudo dnf install -y epel-release
+sudo dnf update -y
+sudo dnf install -y ansible
+ansible --version
+
+En una Ubuntu:
+
+sudo apt update
+sudo apt upgrade
+sudo apt install software-properties-common
+sudo add-apt-repository --yes --update ppa:ansible/ansible
+sudo apt install ansible -y
+ansible --version
+
+En una Debian:
+
+sudo apt-get update
+sudo apt-get upgrade
+-
+sudo apt install ansible -y
+sudo apt-get install ansible -y
+-
+ansible --version
+---
+Editamos el inventario de Ansible y creamos grupos en /etc/ansible/hosts:
+
+[Apache] 
+192.168.40.133 # Rocky APACHE
+---
+
+Establecer variables globales ansible_user y ansible_ssh_private_key_file mediante archivos en group_vars
+
+sudo mkdir -p /etc/ansible/group_vars
+sudo chown -R $(whoami):$(whoami) /etc/ansible/group_vars
+
+En /etc/ansible/group_vars/all.yml añadiremos lo siguiente:
+
+ansible_user: ansible
+ansible_ssh_private_key_file: ~/.ssh/id_rsa_ansible
+ansible_become: true
+
+otra conf que tengo en mi documentación:
+
+# Variables globales para todo el inventario
+ansible_user: ansible-admin 
+ansible_ssh_private_key_file: /root/.ssh/id_rsa_ansible
+ansible_become: true 
+ansible_become_method: sudo 
+ansible_become_user: root
+---
+VERIFICAR mediante:
+
+ansible all -m ping
+ansible all -m ping -b
+---
+--- Playbook:
+
+
+

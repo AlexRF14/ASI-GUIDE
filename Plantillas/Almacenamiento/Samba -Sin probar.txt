@@ -1,0 +1,13 @@
+- Instalación Samba
+
+-Servidor Linux:
+
+	sudo apt install samba
+	sudo systemctl enable smbd
+	sudo systemctl start smbd
+	sudo systemctl status smbd
+
+-Cliente Linux:
+
+	sudo apt install cifs-utils
+
