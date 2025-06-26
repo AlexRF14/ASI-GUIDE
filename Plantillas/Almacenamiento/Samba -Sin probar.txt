@@ -10,12 +10,13 @@
 -Cliente Linux:
 
 	sudo apt install cifs-utils
+	sudo apt smbclient
 
 -Servidor Linux:
 
 	sudo mkdir -p /srv/samba/compartido
 	sudo chown nobody:nogroup /srv/samba/compartido  # Opción 1 (anónimo)
-	sudo chmod 777 /srv/samba/compartido             # Opción 2 (acceso total)
+	sudo chmod 777 /srv/samba/compartido             # Opción 2 (acceso total) Opción verificada
 
 Configuramos el archivo /etc/samba/smb.conf añadiendo al final:
 
@@ -30,10 +31,6 @@ Verificar errores en smb.conf y reiniciar:
 	sudo testparm
 	sudo systemctl restart smbd
 
-Comprobar que el recurso está compartido:
-
-	smbclient -L localhost -N
-
 -Cliente Linux:
 
 Método Temporal:
@@ -45,10 +42,30 @@ Método Persistente, dentro de /etc/fstab añadiremos lo siguiente:
 
 //192.168.1.10/Compartido /mnt/samba cifs guest,uid=1000,iocharset=utf8 0 0
 
+Para conectarse usaremos los siguientes comandos:
+
+Cliente
+smbclient //192.168.40.142/Compartido -N
+Servidor:
+smbclient //localhost/Compartido -N
+
+Para visualizar los archivos:
+ls
+
+Para añadir un archivo:
+put /etc/hostname prueba.txt
+
 -Cliente Windows:
 
 Si en smb.conf configuramos "guest ok = yes", podremos acceder mediante el navegador usando:
 
 \\192.168.1.10\Compartido
 
+Si esto falla hay que añadir en /etc/samba/smb.conf
+
+[global]
+   server min protocol = SMB2
+   server max protocol = SMB3
+
 ---------------------------------------------------------------------------------------------------
+
