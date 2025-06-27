@@ -1,0 +1,81 @@
+zone "examen.net" IN {
+        type master;
+        file "/var/named/examen.net.zone";
+        allow-transfer { 192.168.40.150; };
+        notify yes;
+};
+
+zone "1.168.192.in-addr.arpa" IN {
+        type master;
+        file "/var/named/1.168.192.in-addr.arpa";
+        allow-transfer { 192.168.40.150; };
+        notify yes;
+};
+
+zone "50.168.192.in-addr.arpa" IN {
+        type master;
+        file "/var/named/50.168.192.in-addr.arpa";
+        allow-transfer { 192.168.40.150; };
+        notify yes;
+};
+
+zone "100.168.192.in-addr.arpa" IN {
+        type master;
+        file "/var/named/100.168.192.in-addr.arpa";
+        allow-transfer { 192.168.40.150; };
+        notify yes;
+};
+zone "200.168.192.in-addr.arpa" IN {
+        type master;
+        file "/var/named/200.168.192.in-addr.arpa";
+        allow-transfer { 192.168.40.150; };
+        notify yes;
+};
+
+
+---
+
+Plantilla resolución directa master /var/named/mispruebas.com.zone:
+
+$TTL 86400
+examen.net.	IN	SOA	ns1.examen.net.	root.examen.net.	(
+	2030030801	;
+	3600		;
+	1800		;
+	604800		;
+	86400	)	;
+;
+
+examen.net.		IN	NS	ns1.examen.net.
+examen.net.		IN	NS	ns2.examen.net.
+ns1.examen.net.		IN	A	192.168.1.1
+ns2.examen.net.		IN	A	192.168.1.2
+
+correo1.examen.net.	IN	A	192.168.200.10
+examen.net.		IN	MX	10 correo1.examen.net.
+
+correo2.examen.net.	IN	A	192.168.200.20
+examen.net.		IN	MX	20 correo2.examen.net.
+
+www.examen.net.		IN	A	192.168.100.1
+www.examen.net.		IN	A	192.168.100.2
+
+paco.examen.net.		IN	A	192.168.50.50
+juanito.examen.net.		IN	A	192.168.50.60
+intranet.examen.net.	IN	CNAME	juanito.examen.net.
+
+Plantilla resolución indirecta master /var/named/35.168.192.i-addr.arpa
+
+$TTL 86400
+@	IN	SOA	ns1.examen.net.	root.examen.net.	(
+	2025030801	;
+	3600		;
+	1800		;
+	604800		;
+	86400	)	;
+;
+@	IN	NS	correo1.examen.net.
+@	IN	NS	correo2.examen.net.
+
+10	IN	PTR	correo1.examen.net.
+20	IN	PTR	correo2.examen.net.
