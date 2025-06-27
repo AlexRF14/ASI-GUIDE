@@ -105,6 +105,54 @@ Y no rallarse porque parece que son dos LV diferentes de 8GB cada uno, se puede 
   - currently set to     256
   Block device           253:2
 
-  
+###################################################################################
+
+Configuracion de server NFS para /var/datos
+
+1) Instalacion de NFS
+
+  - En ambos cliente y servidor (diferente entre tipos de distros, puede que ambos server/cliente tengan que instalar diferentes cosas)
+
+     sudo dnf install nfs-utils
+
+  - Damos permisos abiertos a /var/datos
+
+     sudo chmod 777 /var/datos
+
+  - Metmos lo siguiente en /etc/exports:
+
+     sudo vim /etc/exports
+
+     /var/datos 192.168.52.0/24(rw,sync,no_subtree_check,no_root_squash,all_squash)
+
+  - Y hacemos la exportacion:
+
+     sudo exportfs -a
+
+  - Reiniciamos y enableamos el server:
+
+     sudo systemctl restart nfs-server
+
+     sudo systemctl enable nfs-server
+
+  - Tecnicamente ya esta el ej, pero para comprobarlo en la cliente, instalamos:
+
+     sudo dnf install nfs-utils   # Rocky
+     sudo apt install nfs-common  # UbuntuServer
+
+  -Creamos una carpeta:
+
+     sudo mkdir /mnt/remoto
+
+  - Y montamos la carpeta:
+
+     sudo mount -t nfs <IP_servidor>:/var/datos /mnt/remoto
+
+  - Si da error puede ser por permisos, hacer algo como:
+
+    sudo chown sudo nobody /var/datos
+    sudo chown 777 /var/datos
+
+
 Y finiquitado joderrr
 
