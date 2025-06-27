@@ -68,4 +68,23 @@ Si esto falla hay que añadir en /etc/samba/smb.conf
    server max protocol = SMB3
 
 ---------------------------------------------------------------------------------------------------
---- OPCIONAL: En caso de que nos pidan autentificación
+--- OPCIONAL: En caso de que nos pidan autentificación |NO COMPROBADO
+
+Creamos un usuario
+sudo adduser username
+sudo smbpasswd -a usuario
+
+Modificamos smb.conf
+
+[Privado]
+   path = /srv/samba/privado
+   valid users = usuario
+   read only = no
+
+Hay que dar permisos a la carpeta:
+
+sudo mkdir -p /srv/samba/privado
+sudo chown usuario:usuario /srv/samba/privado
+
+
+Debemos crear la carpeta y reinciar.
