@@ -1,0 +1,44 @@
+-Instalación:
+
+sudo apt update
+sudo apt install apache2
+
+-Añadir puertos que vamos a usar en /etc/apache2/ports.conf
+
+Listen 80
+
+-Para poder hacer las pruebas debemos modificar en /etc/hosts
+
+127.0.0.1 localhost www.prueba.es prueba.es
+
+-Creamos un file en /etc/apache2/sites-available/80puerto.conf
+
+<VirtualHost *:80>
+        ServerName www.prueba.es
+        ServerAlias www.prueba.es prueba.es
+        DocumentRoot "/var/www/html"
+
+        <Directory "/var/www/html">
+                DirectoryIndex prueba.html
+                Require all granted
+                AllowOverride All
+        </Directory>
+</VirtualHost>
+
+-Creamos el file vim /var/www/html/prueba.html
+
+<h1> Prueba HTML </h1>
+
+-Ejecutamos los siguientes comandos:
+
+systemctl restart apache2
+sudo a2ensite 80puerto.conf
+systemctl restart apache2
+
+-Comprobamos que funciona:
+
+root@server:~# curl http://prueba.es
+<h1> Prueba HTML </h1>
+
+root@server:~# curl http://www.prueba.es
+<h1> Prueba HTML </h1>
