@@ -129,3 +129,50 @@ root@server:~# ip a
     inet6 fe80::20c:29ff:fe29:eec/64 scope link
        valid_lft forever preferred_lft forever
 
+
+--- Acceso restringido por contraseña
+
+-Creamos un directorio especial para privado:
+
+sudo mkdir -p /var/www/html/privado
+
+-Creamos el file /var/www/html/privado/index.html
+
+"<h1>Bienvenido al área privada</h1>"
+
+-Creamos al usuario y establecemos la contraseña con:
+
+sudo htpasswd -c /etc/apache2/.htpasswd user
+
+cat /etc/apache2/.htpasswd # para comprobar los usuarios
+
+-Creamos el file /etc/apache2/sites-available/privado.conf
+
+<VirtualHost *:80>
+        ServerName www.privado.es
+        ServerAlias www.privado.es privado.es
+        DocumentRoot "/var/www/html"
+
+        <Directory "/var/www/html/privado">
+                DirectoryIndex index.html
+                Require valid-user
+                AuthName "Área Restringida"
+                AuthType Basic
+                AuthUserFile /etc/apache2/.htpasswd
+        </Directory>
+</VirtualHost>
+
+-Ejecutamos los siguientes comando:
+
+sudo a2ensite privado.conf
+sudo a2enmod auth_basic
+sudo systemctl restart apache2
+
+-Dentro de /etc/hosts:
+
+127.0.0.1 localhost www.privado.es privado.es
+
+-Verificación:
+
+root@server:~# curl -u user:contrasenna http://localhost/privado/
+"<h1>Bienvenido al área privada</h1>"
