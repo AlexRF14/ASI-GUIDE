@@ -174,5 +174,20 @@ sudo systemctl restart apache2
 
 -Verificación:
 
-root@server:~# curl -u user:contrasenna http://localhost/privado/
+root@server:~# curl -H "Host: www.privado.es" http://localhost/privado/
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>401 Unauthorized</title>
+</head><body>
+<h1>Unauthorized</h1>
+<p>This server could not verify that you
+are authorized to access the document
+requested.  Either you supplied the wrong
+credentials (e.g., bad password), or your
+browser doesn't understand how to supply
+the credentials required.</p>
+<hr>
+<address>Apache/2.4.58 (Ubuntu) Server at www.privado.es Port 80</address>
+</body></html>
+root@server:~# curl -u contrasenna:contrasenna -H "Host: www.privado.es" http://localhost/privado/
 "<h1>Bienvenido al área privada</h1>"
