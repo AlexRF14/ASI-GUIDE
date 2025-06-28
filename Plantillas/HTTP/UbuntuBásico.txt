@@ -48,3 +48,84 @@ root@server:~# curl http://www.prueba.es
 sudo chown -R www-data:www-data /var/www/html
 sudo chmod -R 755 /var/www/html
 
+--- Servidores basados en IP
+
+sudo mkdir -p /var/www/sitio1
+sudo mkdir -p /var/www/sitio2
+
+echo "<h1>Hola desde Sitio 1</h1>" | sudo tee /var/www/sitio1/index.html
+echo "<h1>Hola desde Sitio 2</h1>" | sudo tee /var/www/sitio2/index.html
+
+-Dentro de /etc/apache2/sites-availabe/sitio1.conf
+
+<VirtualHost 192.168.1.100:80>
+    ServerAdmin webmaster@sitio1.com
+    DocumentRoot /var/www/sitio1
+    ErrorLog ${APACHE_LOG_DIR}/sitio1_error.log
+    CustomLog ${APACHE_LOG_DIR}/sitio1_access.log combined
+</VirtualHost>
+
+-Dentro de /etc/apache2/sites-available/sitio2.conf
+
+<VirtualHost 192.168.1.101:80>
+    ServerAdmin webmaster@sitio2.com
+    DocumentRoot /var/www/sitio2
+    ErrorLog ${APACHE_LOG_DIR}/sitio2_error.log
+    CustomLog ${APACHE_LOG_DIR}/sitio2_access.log combined
+</VirtualHost>
+
+-Habilitar los sitios y reiniciar Apache:
+
+sudo a2ensite sitio1.conf
+sudo a2ensite sitio2.conf
+sudo systemctl reload apache2
+
+-Modificar /etc/netplan/00-installer-config.yaml
+
+network:
+  version: 2
+  ethernets:
+    eth0:
+      addresses:
+        - 192.168.40.154/24
+        - 192.168.1.100/24
+        - 192.168.1.101/24
+      nameservers:
+        addresses: [8.8.8.8, 1.1.1.1]
+      routes:
+        - to: default
+          via: 192.168.40.1
+
+y ejecutar:
+
+sudo netplan apply
+
+Comprobaciones:
+
+root@server:~# curl http://192.168.1.100
+<h1>Hola desde Sitio 1</h1>
+root@server:~# curl http://192.168.1.101
+<h1>Hola desde Sitio 2</h1>
+
+Asi debería verse eth0:
+
+root@server:~# ip a
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host noprefixroute
+       valid_lft forever preferred_lft forever
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
+    link/ether 00:0c:29:29:0e:ec brd ff:ff:ff:ff:ff:ff
+    altname enp2s1
+    altname ens33
+    inet 192.168.40.154/24 brd 192.168.40.255 scope global eth0
+       valid_lft forever preferred_lft forever
+    inet 192.168.1.100/24 brd 192.168.1.255 scope global eth0
+       valid_lft forever preferred_lft forever
+    inet 192.168.1.101/24 brd 192.168.1.255 scope global secondary eth0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::20c:29ff:fe29:eec/64 scope link
+       valid_lft forever preferred_lft forever
+
