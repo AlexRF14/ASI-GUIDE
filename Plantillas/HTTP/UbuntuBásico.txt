@@ -42,3 +42,9 @@ root@server:~# curl http://prueba.es
 
 root@server:~# curl http://www.prueba.es
 <h1> Prueba HTML </h1>
+
+--- SI HAY PROBLEMAS EJECUTAR
+
+sudo chown -R www-data:www-data /var/www/html
+sudo chmod -R 755 /var/www/html
+
