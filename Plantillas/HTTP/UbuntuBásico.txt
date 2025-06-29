@@ -156,6 +156,7 @@ cat /etc/apache2/.htpasswd # para comprobar los usuarios
         <Directory "/var/www/html/privado">
                 DirectoryIndex index.html
                 Require valid-user
+                AllowOverride AuthConfig
                 AuthName "Área Restringida"
                 AuthType Basic
                 AuthUserFile /etc/apache2/.htpasswd
