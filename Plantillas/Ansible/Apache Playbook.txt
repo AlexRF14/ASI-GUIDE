@@ -1,0 +1,75 @@
+---
+- name: Rocky web Proyect o Project
+  hosts: Apache
+  become: yes
+  vars:
+   proyectos_root: /var/projects
+   apache_pkg:
+    Rocky: httpd
+   apache_service:
+    Rocky: httpd
+   apache_conf_dir:
+    Rocky: /etc/httpd/conf.d
+   apache_user:
+    Rocky: apache
+   apache_group:
+    Rocky: apache
+
+  tasks:
+   - name: Install apachasi pack
+     package:
+      name: "{{ apache_pkg[ansible_distribution] }}"
+      state: present
+
+   - name: Habilitar y arrancar servicio Apache
+     service:
+      name: "{{ apache_service[ansible_distribution] }}"
+      state: started
+      enabled: yes
+
+   - name: Crear directorio root
+     file:
+      path: "{{ proyectos_root }}"
+      state: directory
+      mode: '0755'
+
+   - name: Crear directorio del proyecto web para {{ dominio }}
+     file:
+      path: "{{ proyectos_root }}/{{ dominio }}"
+      state: directory
+      owner: "{{ apache_user[ansible_distribution] }}"
+      group: "{{ apache_group[ansible_distribution] }}"
+      mode: '0755'
+
+   - name: Crear página de inicio index.html
+     copy:
+      dest: "{{ proyectos_root }}/{{ dominio}}/index.html"
+      content: "<h1>Bienvenido a {{ dominio }}</h1>"
+
+   - name: Asegurar de que el directorio de configuración de VirtualHosts existe
+     file:
+      path: "{{ apache_conf_dir[ansible_distribution] }}"
+      state: directory
+      mode: '0755'
+
+   - name: Crear archivos de configuración de VirtualHost
+     template:
+      src: virtualhost.j2
+      dest: "{{ apache_conf_dir[ansible_distribution] }}/{{ dominio }}.conf"
+
+
+
+
+
+<VirtualHost *:80>
+        ServerName {{ dominio }}
+        DocumentRoot {{ proyectos_root }}/{{ dominio }}
+
+        <Directory {{ proyectos_root }}/{{ dominio }}>
+                DirectoryIndex index.html
+                Options Indexes FollowSymLinks
+                AllowOverride None
+                Require all granted
+        </Directory>
+</VirtualHost>
+
