@@ -5,8 +5,8 @@ sudo systemctl status chronyd
 sudo chronyc makestep
 
 sudo yum install -y unzip curl
-curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-unzip awscliv2.zip
+sudo curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+sudo unzip awscliv2.zip
 sudo ./aws/install
 aws --version
 ```
@@ -29,7 +29,7 @@ Default output format [None]: table
 Para añadir el session token:
 
 ```bash
-vim .aws/credentials
+sudo vim .aws/credentials
 ```
 Y añade la línea:
 ```
