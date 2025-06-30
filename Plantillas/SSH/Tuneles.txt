@@ -1,0 +1,18 @@
+Tunel Local
+Se usa para cosa como que las peticiones que llegue a un cliente se maneje en el puerto de un servidor.
+Llegar a algo que esta en el server o detras del server (en su lado)
+(de tu maquina, a otra maquina)
+
+ssh -L <puerto_local>:<IP_remoto>:<puerto_remoto> user@<IP_remoto>
+(con la opcion -g permites que el puerto este visible en el lado del cliente)
+
+-----------
+Tunel Remoto
+Se usa para acceder al puerto de una maquina (normalmente en una red privada o algo asi) y dejando entrar a su red.
+En vez de conectarte a la maquina remotamente, usas tu propio puerto. (Puedes poner desde otra maquina la IP/puerto que has configurado y
+acceder a las maquinas al otro lado del tunel)
+Desde el lado del servidor, llegar a recursos del cliente o pasado del cliente (peligroso por dejar acceder a una red privada)
+
+ssh -R <puerto_local>:<IP_remoto>:<puerto_remoto> user@<IP_remoto>
+
+NOTA: requiere 'GatewayPorts yes' en /etc/ssh/sshd.conf (equivalente al -g)
