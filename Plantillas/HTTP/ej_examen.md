@@ -109,7 +109,7 @@ Require valid-user
 ----
 ----
 
-## Detalle extra, si se quiere meter archivo de log, se puede hacer asi:
+## Detalle extra #1, si se quiere meter archivo de log, se puede hacer asi:
 
 Normalmente los archivos de log de apache estan en (ubuntu-> /var/log/apache2/ | rocky-> /var/log/httpd), pero si queremos podemos crear nuevos archivo en nuestro directorio de la webpage.
 
@@ -161,5 +161,66 @@ El LogFormat, ubicado en el archivo de /etc/apache2/apache2.conf (ubuntu), o en 
     %p: Puerto canónico del servidor que atiende la solicitud. 
 
 ---
+---
+
+## Detalle extra #2, si lo queremos configurar por IPs (asignadas a subinterfaces)
+
+Si queremos que escuche en dos IPs (ejemplo: 192.168.52.129 -> la de la maquina y 192.168.52.101 -> otra IP diferente) hay que configurar una subinterfaz con una IP.
+
+Le podemos asignar a una subinterfaz de eth0, como la eth0:1 la otra IP en la queremos que escuche.
+```bash
+sudo ifconfig eth0:1 192.168.52.101
+```
+---
+Y si hacemos un ifconfig para ver nuestras IPs de la maquina, vemos que sale nuestra nueva IP:
+```text
+[root@server conf.d]# ifconfig
+eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 192.168.52.129  netmask 255.255.255.0  broadcast 192.168.52.255
+        inet6 fe80::20c:29ff:fecb:24a4  prefixlen 64  scopeid 0x20<link>
+        ether 00:0c:29:cb:24:a4  txqueuelen 1000  (Ethernet)
+        RX packets 24567  bytes 35069857 (33.4 MiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 9109  bytes 549423 (536.5 KiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+eth0:1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 192.168.52.101  netmask 255.255.255.0  broadcast 192.168.52.255
+        ether 00:0c:29:cb:24:a4  txqueuelen 1000  (Ethernet)
+```
+>**NOTA**: Si hacen falta mas IPs, configurar a subinterfaces siguientes (eth0:2, ...)
+---
+
+Ahora solo quedaria configurar el archivo de **/etc/httpd/conf.d/virtualhosts.conf** (o **/etc/apache2/sites-available/000-default.conf** en ubuntu) y crear un nuevo virtualhost para esa IP (algo del rollo, metiendo dentro de cada uno lo que haga falta para el ejercicio):
+```apache
+<VirtualHost 192.168.52.101:80>
+        ...
+
+        <Directory "/web/prueba1">
+                ...
+        </Directory>
+
+        ...
+</VirtualHost>
+
+<VirtualHost 192.168.52.101:80>
+        ...
+
+        <Directory "/web/prueba2">
+                ...
+        </Directory>
+
+        ...
+</VirtualHost>
+```
+>**NOTA**: Lo que se cambia es la IP, puedes hacer que a diferentes IPs se llegue a diferentes DocumentRoots y esas cosillas.
+---
+Y no olvidarse de reiniciar el servicio:
+
+```bash
+sudo systemctl restart httpd # Rocky
+sudo systemctl restart apache2 # Ubuntu
+```
+
 
 ## **And that's all folks!!!**
