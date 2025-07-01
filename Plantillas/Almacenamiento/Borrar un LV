@@ -1,0 +1,12 @@
+
+
+Elimina el volumen lógico:
+sudo lvremove /dev/vg_prueba/lv_datos
+
+Elimina el grupo de volúmenes:
+sudo vgremove vg_prueba
+
+Elimina los volúmenes físicos del sistema LVM:
+
+sudo pvremove /dev/sdb2
+sudo pvremove /dev/sdb3
