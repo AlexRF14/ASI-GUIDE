@@ -185,4 +185,124 @@ sudo chown nobody /var/datos
 sudo chmod 777 /var/datos
 ```
 
+---
+---
+## Extra: Configuracion de SMB con usuario
+
+**1. Instalacion**
+
+Ubuntu:
+```bash
+sudo apt update
+sudo apt install samba
+```
+
+Rocky:
+```bash
+sudo dnf update -y
+sudo dnf install samba samba-common samba-client -y
+```
+---
+**2. Haz un backup del archivo de config por si la lias**
+
+Ubuntu/Rocky:
+```bash
+sudo cp /etc/samba/smb.conf /etc/samba/smb.conf.backup
+```
+---
+**3. Edita /etc/samba/smb.conf y mete esto**
+
+Ubuntu:
+```text
+[datos]
+   comment = Shared Datos Folder
+   path = /var/datos
+   browsable = yes
+   writable = yes
+   guest ok = no
+   valid users = @sambashare
+   create mask = 0755
+```
+
+Rocky:
+```text
+[global]
+   workgroup = WORKGROUP
+   server string = Samba Server %v
+   security = user
+   map to guest = bad user
+
+[datos]
+   path = /var/datos
+   browsable = yes
+   writable = yes
+   guest ok = no
+   read only = no
+   create mask = 0755
+```
+>**NOTA**: El [global] ya existe, editalo para que tenga eso tambien
+---
+**4. Ajusta los permisos del directorio**
+
+Ubuntu:
+```bash
+sudo mkdir -p /var/datos
+sudo chown -R root:sambashare /var/datos
+sudo chmod -R 2770 /var/datos
+```
+Rocky:
+```bash
+sudo mkdir -p /var/datos
+sudo chown -R nobody:nobody /var/datos
+sudo chmod -R 755 /var/datos
+sudo chcon -t samba_share_t /var/datos
+```
+>**NOTA**: Ajusta permisos y owners como te haga falta
+---
+**5. Crea un Samba user**
+
+Ubuntu:
+```bash
+sudo adduser <usuario>
+sudo usermod -aG sambashare <usuario>
+sudo smbpasswd -a <usuario>
+```
+>**NOTA**: Puedes no crear un nuevo user y meterle al grupo y la smbpasswd a un user que ya exista
+
+Rocky:
+```bash
+sudo useradd <usuario>
+sudo smbpasswd -a <usuario>
+```
+>**NOTA**: Puedes no crear un nuevo user y meterle la smbpasswd a un user que ya exista
+---
+**6. Reinicia/start/enable smb**
+
+Ubuntu:
+```bash
+sudo systemctl start smbd nmbd # por si no se ha iniciado
+sudo systemctl restart smbd nmbd
+sudo systemctl enable smbd nmbd
+```
+
+Rocky:
+```bash
+sudo systemctl start --now smb nmb
+sudo systemctl restart --now smb nmb
+sudo systemctl enable --now smb nmb
+```
+---
+**7. Abrir el firewall (dudo que haga falta pero porsiaca)**
+
+Ubuntu:
+```bash
+sudo ufw allow samba
+```
+
+Rocky:
+```bash
+sudo firewall-cmd --permanent --zone=public --add-service=samba
+sudo firewall-cmd --reload
+```
+
 **¡Y finiquitado!**
