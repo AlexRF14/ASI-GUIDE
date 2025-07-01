@@ -29,3 +29,15 @@ ssh -R <puerto_local>:<IP_remoto>:<puerto_remoto> user@<IP_remoto>
 - Permite que, desde el lado del servidor, se llegue a recursos del cliente o incluso más allá (esto puede ser peligroso, ya que abre acceso a una red privada).
 
 > **NOTA:** Es necesario tener `GatewayPorts yes` en `/etc/ssh/sshd.conf` (equivalente a usar la opción `-g`).
+
+----------------------
+### Archivo /etc/ssh/sshd_config. Algunas directivas: 
++ **Port**. Puerto de escucha [22] 
++ **Protocol**. Versiones de SSH soportadas [2]
++ **PermitRootLogin**. Permite el acceso de root [no]
++ **AllowGroups**. Especifica qué grupos tienen acceso por SSH [todos los grupos]
++ **PasswordAuthentication**. [yes]
++ **PubkeyAuthentication**. [yes]
++ **HostbasedAuthentication**. [no] 
++ **PermitEmptyPasswords**. Se permite el acceso a cuentas que no posean clave. [no]
++ **StrictModes**. Especifica si sshd debe comprobar los permisos de los ficheros (600) y del directorio  ~/.ssh (700) antes de aceptar una conexión [yes]
